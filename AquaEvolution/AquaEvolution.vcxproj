@@ -42,8 +42,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>C:\AquaEvolutionProject\ExternalResources\includes;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\AquaEvolutionProject\ExternalResources\libs;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\AquaEvolutionProject\AquaEvolution\ExternalResources\includes;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\AquaEvolutionProject\AquaEvolution\ExternalResources\libs;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
