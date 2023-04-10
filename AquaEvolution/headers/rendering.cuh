@@ -8,6 +8,7 @@
 __global__ void render_GPU(GLubyte* pixels, int maxX, int maxY);
 void render_CPU(GLubyte* pixels, int maxX, int maxY);
 __host__ __device__ float3 calc_color(float xNorm, float yNorm);
+__host__ __device__ float calc_light_power(float xNorm, float yNorm);
 
 // renders scene on bitmap pixels using GPU kernel
 __global__ void render_GPU(GLubyte* pixels, int maxX, int maxY)
@@ -51,10 +52,26 @@ void render_CPU(GLubyte* pixels, int maxX, int maxY)
 	}
 }
 
-// returns either calculated color
+// returns calculated water/sky color for position
 __host__ __device__ float3 calc_color(float xNorm, float yNorm)
 {
-	return { 0.0f, 0.0f, 1.0f };
+	const float3 sky = { 0.7f, 0.8f, 1.0f };
+	const float3 surfaceWater = { 0.0f, 0.9f, 0.9f };
+	const float3 deepWater = { 0.0f, 0.0f, 0.0f };
+	const float surfaceOffset = 0.9f;
+
+	if (yNorm > surfaceOffset)
+		return { 0.7f, 0.8f, 1.0f };
+
+	float lightFactor = calc_light_power(xNorm, yNorm*surfaceOffset);
+
+	return (surfaceWater - deepWater)*lightFactor;
+}
+
+//returns light power strength in given point
+__host__ __device__ float calc_light_power(float xNorm, float yNorm)
+{
+	return yNorm;
 }
 
 
