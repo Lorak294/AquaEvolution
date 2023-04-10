@@ -1,121 +1,273 @@
-
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "headers/Shader.h"
 
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 #include <stdio.h>
+#include <iostream>
+#include <string>
 
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
+#include "headers/rendering.cuh"
 
-__global__ void addKernel(int *c, const int *a, const int *b)
-{
-    int i = threadIdx.x;
-    c[i] = a[i] + b[i];
-}
+#define checkCudaErrors(call)                                 \
+  do {                                                        \
+    cudaError_t err = call;                                   \
+    if (err != cudaSuccess) {                                 \
+      printf("CUDA error at %s %d: %s\n", __FILE__, __LINE__, \
+             cudaGetErrorString(err));                        \
+      exit(EXIT_FAILURE);                                     \
+    }                                                         \
+  } while (0)
+
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void processInput(GLFWwindow *window);
+GLFWwindow* createGLWindow();
+void createBuffers();
+void createTexture();
+void cleanup();
+void renderLoop(GLFWwindow* window, Shader shader);
+void copy_bitmap_to_host();
+
+
+// settings
+unsigned int SCR_WIDTH = 1600;
+unsigned int SCR_HEIGHT = 900;
+size_t BITMAP_RGB_SIZE = SCR_WIDTH * SCR_HEIGHT * sizeof(GLubyte) * 3;
+
+const unsigned int TX = 16;
+const unsigned int TY = 16;
+
+const bool GPU_RNEDER = true;
+
+GLubyte* hostBitmap;
+GLubyte* deviceBitmap;
+
+double oneFrameTime;
+double copyTime;
+double renderTime;
+
+unsigned int VBO, VAO, EBO, tex;
 
 int main()
 {
-    const int arraySize = 5;
-    const int a[arraySize] = { 1, 2, 3, 4, 5 };
-    const int b[arraySize] = { 10, 20, 30, 40, 50 };
-    int c[arraySize] = { 0 };
+	GLFWwindow* window = createGLWindow();
 
-    // Add vectors in parallel.
-    cudaError_t cudaStatus = addWithCuda(c, a, b, arraySize);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addWithCuda failed!");
-        return 1;
-    }
+	// create simple shader to display texture
+	Shader shader("texture.vs", "texture.fs");
 
-    printf("{1,2,3,4,5} + {10,20,30,40,50} = {%d,%d,%d,%d,%d}\n",
-        c[0], c[1], c[2], c[3], c[4]);
+	// alocating bitmaps resources
+	hostBitmap = (GLubyte*)malloc(BITMAP_RGB_SIZE);
+	checkCudaErrors(cudaMalloc((void **)&deviceBitmap, BITMAP_RGB_SIZE));
 
-    // cudaDeviceReset must be called before exiting in order for profiling and
-    // tracing tools such as Nsight and Visual Profiler to show complete traces.
-    cudaStatus = cudaDeviceReset();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceReset failed!");
-        return 1;
-    }
+	// creating openGL buffers and drawing
+	createBuffers();
+	createTexture();
+	renderLoop(window, shader);
 
-    return 0;
+	// cleanup
+	cleanup();
+	return 0;
 }
 
-// Helper function for using CUDA to add vectors in parallel.
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size)
+// -------------------------------------------- OPENGL FUNCTIONS -----------------------------------------------
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+void processInput(GLFWwindow *window)
 {
-    int *dev_a = 0;
-    int *dev_b = 0;
-    int *dev_c = 0;
-    cudaError_t cudaStatus;
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+	{
+		glfwSetWindowShouldClose(window, true);
+		return;
+	}
+}
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+	// make sure the viewport matches the new window dimensions; note that width and 
+	// height will be significantly larger than specified on retina displays.
+	glViewport(0, 0, width, height);
 
-    // Choose which GPU to run on, change this on a multi-GPU system.
-    cudaStatus = cudaSetDevice(0);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-        goto Error;
-    }
+	// update parameters
+	SCR_WIDTH = width;
+	SCR_HEIGHT = height;
+	BITMAP_RGB_SIZE = SCR_WIDTH * SCR_HEIGHT * sizeof(GLubyte) * 3;
 
-    // Allocate GPU buffers for three vectors (two input, one output)    .
-    cudaStatus = cudaMalloc((void**)&dev_c, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
+	//new texture
+	//glTexImage2D()
 
-    cudaStatus = cudaMalloc((void**)&dev_a, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
+	// resize btimaps
+	free(hostBitmap);
+	hostBitmap = (GLubyte*)malloc(BITMAP_RGB_SIZE);
+	memset(hostBitmap, 0, BITMAP_RGB_SIZE);
 
-    cudaStatus = cudaMalloc((void**)&dev_b, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
+	checkCudaErrors(cudaFree(deviceBitmap));
+	checkCudaErrors(cudaMalloc((void **)&deviceBitmap, BITMAP_RGB_SIZE));
+	cudaMemset(deviceBitmap, 0, BITMAP_RGB_SIZE);
+}
+GLFWwindow* createGLWindow()
+{
+	// glfw: initialize and configure
+	// ------------------------------
+	glfwInit();
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    // Copy input vectors from host memory to GPU buffers.
-    cudaStatus = cudaMemcpy(dev_a, a, size * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
+#ifdef __APPLE__
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
 
-    cudaStatus = cudaMemcpy(dev_b, b, size * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
+	// glfw window creation
+	// --------------------
+	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+	if (window == NULL)
+	{
+		std::cout << "Failed to create GLFW window" << std::endl;
+		glfwTerminate();
+		exit(-1);
+	}
+	glfwMakeContextCurrent(window);
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	//glfwSetKeyCallback(window, key_callback);
 
-    // Launch a kernel on the GPU with one thread for each element.
-    addKernel<<<1, size>>>(dev_c, dev_a, dev_b);
+	// glad: load all OpenGL function pointers
+	// ---------------------------------------
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	{
+		std::cout << "Failed to initialize GLAD" << std::endl;
+		exit(-1);
+	}
+	return window;
+}
+void createBuffers()
+{
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	float vertices[] = {
+		// positions          // texture coords
+		 1.0f,  1.0f, 0.0f,   1.0f, 1.0f, // top right
+		 1.0f, -1.0f, 0.0f,   1.0f, 0.0f, // bottom right
+		-1.0f, -1.0f, 0.0f,   0.0f, 0.0f, // bottom left
+		-1.0f,  1.0f, 0.0f,   0.0f, 1.0f  // top left 
+	};
+	unsigned int indices[] = {
+		0, 1, 3, // first triangle
+		1, 2, 3  // second triangle
+	};
 
-    // Check for any errors launching the kernel
-    cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-        goto Error;
-    }
-    
-    // cudaDeviceSynchronize waits for the kernel to finish, and returns
-    // any errors encountered during the launch.
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-        goto Error;
-    }
 
-    // Copy output vector from GPU buffer to host memory.
-    cudaStatus = cudaMemcpy(c, dev_c, size * sizeof(int), cudaMemcpyDeviceToHost);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
 
-Error:
-    cudaFree(dev_c);
-    cudaFree(dev_a);
-    cudaFree(dev_b);
-    
-    return cudaStatus;
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+	// texture coord attribute
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+}
+void createTexture()
+{
+	// load and create a texture 
+	glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_2D, tex); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
+	// set the texture wrapping parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	// set texture filtering parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+}
+
+// --------------------------------------------- MEMORY MANAGEMENT FUNCTIONS ------------------------------------
+void cleanup()
+{
+	// de-allocate all resources once they've outlived their purpose:
+	glDeleteVertexArrays(1, &VAO);
+	glDeleteBuffers(1, &VBO);
+	glDeleteBuffers(1, &EBO);
+	glDeleteTextures(1, &tex);
+
+	// glfw: terminate, clearing all previously allocated GLFW resources.
+	glfwTerminate();
+
+	// de-allocate bitmap buffers
+	free(hostBitmap);
+	checkCudaErrors(cudaFree(deviceBitmap));
+}
+void copy_bitmap_to_host()
+{
+	checkCudaErrors(cudaMemcpy(hostBitmap, deviceBitmap, BITMAP_RGB_SIZE, cudaMemcpyDeviceToHost));
+}
+
+// --------------------------------------------- RENDERING FUNCTIONS ----------------------------------------------
+void renderLoop(GLFWwindow* window, Shader shader)
+{
+	while (!glfwWindowShouldClose(window))
+	{
+		// start timestamp
+		oneFrameTime = glfwGetTime();
+
+		// input
+		processInput(window);
+
+		// render
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		if (GPU_RNEDER)
+		{
+			dim3 blocks(SCR_WIDTH / TX + 1, SCR_HEIGHT / TY + 1);
+			dim3 threads(TX, TY);
+
+			// render kernel function
+			renderTime = glfwGetTime();
+			render_GPU << <blocks, threads >> > (deviceBitmap, SCR_WIDTH, SCR_HEIGHT);
+			checkCudaErrors(cudaGetLastError());
+			checkCudaErrors(cudaDeviceSynchronize());
+			renderTime = glfwGetTime() - renderTime;
+
+			// copy bitmap to host
+			copyTime = glfwGetTime();
+			copy_bitmap_to_host();
+			copyTime = glfwGetTime() - copyTime;
+		}
+		else
+		{
+			render_CPU(hostBitmap, SCR_WIDTH, SCR_HEIGHT);
+		}
+
+		// create texture form bitmap
+		glBindTexture(GL_TEXTURE_2D, tex);
+		//glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, hostBitmap);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, hostBitmap);
+
+		// render container
+		shader.use();
+		glBindVertexArray(VAO);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+
+		// end timestamp
+		oneFrameTime = glfwGetTime() - oneFrameTime;
+		glfwSetWindowTitle(window,
+			("One Frame time: " + std::to_string(oneFrameTime) +
+				"s; Copy time: " + std::to_string(copyTime) +
+				"s; Render time: " + std::to_string(renderTime) +
+				"s;"
+				).c_str());
+
+	}
 }
