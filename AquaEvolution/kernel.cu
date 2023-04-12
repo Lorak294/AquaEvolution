@@ -1,14 +1,18 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+
 #include "headers/Shader.h"
+#include "headers/rendering.cuh"
+#include "headers/aquarium.cuh"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stdio.h>
 #include <iostream>
 #include <string>
-
-#include "headers/rendering.cuh"
+#include <cstdlib>
+#include <ctime>
+#include <random>
 
 #define checkCudaErrors(call)                                 \
   do {                                                        \
@@ -29,12 +33,14 @@ void createTexture();
 void cleanup();
 void renderLoop(GLFWwindow* window, Shader shader);
 void copy_bitmap_to_host();
-
+void makeNewGeneration();
+void resetAquariumStruct(int algaeCount);
 
 // settings
 unsigned int SCR_WIDTH = 1600;
 unsigned int SCR_HEIGHT = 900;
 size_t BITMAP_RGB_SIZE = SCR_WIDTH * SCR_HEIGHT * sizeof(GLubyte) * 3;
+const float alga::initaialSize = 0.5f;
 
 const unsigned int TX = 16;
 const unsigned int TY = 16;
@@ -44,6 +50,11 @@ const bool GPU_RNEDER = true;
 GLubyte* hostBitmap;
 GLubyte* deviceBitmap;
 
+aquarium hostAquarium;
+s_aquarium hostAquariumStruct;
+s_aquarium deviceAquariumStruct;
+int algaeCount = 1;
+
 double oneFrameTime;
 double copyTime;
 double renderTime;
@@ -52,6 +63,8 @@ unsigned int VBO, VAO, EBO, tex;
 
 int main()
 {
+	srand(static_cast<unsigned> (time(0)));
+
 	GLFWwindow* window = createGLWindow();
 
 	// create simple shader to display texture
@@ -218,6 +231,9 @@ void renderLoop(GLFWwindow* window, Shader shader)
 		// start timestamp
 		oneFrameTime = glfwGetTime();
 
+		// allocate aquarium resources
+
+
 		// input
 		processInput(window);
 
@@ -270,4 +286,39 @@ void renderLoop(GLFWwindow* window, Shader shader)
 				).c_str());
 
 	}
+}
+
+// --------------------------------------------- AQUARIUM MANAGEMENT FUNCTIONS ----------------------------------------------
+
+void makeNewGeneration()
+{
+	// copy alive algae to new aquarium
+	hostAquarium.readFromDeviceStruct(hostAquariumStruct, false);
+
+	// make new algae from each one
+	hostAquarium.newGeneration();
+
+	// apply mutations and store algae in new arrays
+	resetAquariumStruct(hostAquarium.algae.size());
+	hostAquarium.writeToDeviceStruct(hostAquariumStruct);
+}
+
+
+void resetAquariumStruct(int algaeCount)
+{
+	hostAquariumStruct.algaeCount = algaeCount;
+	
+	free(hostAquariumStruct.algae.positions.x);
+	free(hostAquariumStruct.algae.positions.y);
+	free(hostAquariumStruct.algae.driftingVecs.x);
+	free(hostAquariumStruct.algae.driftingVecs.y);
+	free(hostAquariumStruct.algae.alives);
+	free(hostAquariumStruct.algae.sizes);
+
+	hostAquariumStruct.algae.positions.x = (float*)malloc(algaeCount * sizeof(float));
+	hostAquariumStruct.algae.positions.y = (float*)malloc(algaeCount * sizeof(float));
+	hostAquariumStruct.algae.driftingVecs.x = (float*)malloc(algaeCount * sizeof(float));
+	hostAquariumStruct.algae.driftingVecs.y = (float*)malloc(algaeCount * sizeof(float));
+	hostAquariumStruct.algae.alives = (bool*)malloc(algaeCount * sizeof(bool));
+	hostAquariumStruct.algae.sizes = (float*)malloc(algaeCount * sizeof(float));
 }

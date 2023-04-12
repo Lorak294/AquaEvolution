@@ -81,9 +81,12 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="headers\algae.cuh" />
+    <ClInclude Include="headers\aquarium.cuh" />
     <ClInclude Include="headers\helper_math.cuh" />
     <ClInclude Include="headers\rendering.cuh" />
     <ClInclude Include="headers\Shader.h" />
+    <ClInclude Include="headers\structures.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />
