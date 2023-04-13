@@ -61,7 +61,7 @@ __host__ __device__ float3 calc_color(float xNorm, float yNorm)
 	const float surfaceOffset = 0.9f;
 
 	if (yNorm > surfaceOffset)
-		return { 0.7f, 0.8f, 1.0f };
+		return sky;
 
 	float lightFactor = calc_light_power(xNorm, yNorm*surfaceOffset);
 

@@ -11,7 +11,7 @@ float randomFloat(float a, float b);
 struct s_aquarium 
 {
 	s_algae algae;
-	int algaeCount;
+	int* algaeCount;
 };
 
 class aquarium
@@ -24,7 +24,7 @@ public:
 	void readFromDeviceStruct(const s_aquarium& deviceStruct, bool includeDead)
 	{
 		algae.clear();
-		for (int i = 0; i < deviceStruct.algaeCount; i++)
+		for (int i = 0; i < *(deviceStruct.algaeCount); i++)
 		{
 			if (includeDead || deviceStruct.algae.alives[i])
 			{
