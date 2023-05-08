@@ -35,6 +35,7 @@ void createBuffers();
 void createBackgroundBuffers();
 void createBackgroundBuffers();
 void createAlgaBuffers();
+void createFishBuffers();
 void cleanup();
 void renderLoop(GLFWwindow* window, Shader shader);
 void makeNewGeneration();
@@ -52,6 +53,8 @@ unsigned int SCR_HEIGHT = 1000;
 const glm::vec3 SURFACE = { 0.0f, 0.9f, 0.9f };
 const glm::vec3 DEEPWATER = { 0.0f, 0.0f, 0.0f };
 const glm::vec3 ALGAECOLOR = { 0.0f, 1.0f, 0.0f };
+const glm::vec3 FISHCOLOR1 = { 0.94f, 0.54f, 0.09f };
+const glm::vec3 FISHCOLOR2 = { 0.85f, 0.7f, 0.2f };
 
 // settings
 const float Object::initaialSize = 0.5f;
@@ -65,6 +68,7 @@ s_aquarium deviceAquariumStruct;
 
 unsigned int VBO_bg, VAO_bg, EBO_bg;
 unsigned int VBO_alga, VAO_alga, EBO_alga;
+unsigned int VBO_fish, VAO_fish, EBO_fish;
 
 int main()
 {
@@ -143,6 +147,7 @@ void createBuffers()
 {
 	createBackgroundBuffers();
 	createAlgaBuffers();
+	createFishBuffers();
 }
 void createBackgroundBuffers()
 {
@@ -224,6 +229,45 @@ void createAlgaBuffers()
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
 }
+void createFishBuffers()
+{
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	float vertices[] =
+	{	// coords			// colors 
+		 0.0f,  1.0f, 0.0f, FISHCOLOR1.r,	FISHCOLOR1.g,	FISHCOLOR1.b,	// top 
+		 0.3f,  0.0f, 0.0f, FISHCOLOR2.r,	FISHCOLOR2.g,	FISHCOLOR2.b,	// top right
+		-0.3f,  0.0f, 0.0f, FISHCOLOR2.r,	FISHCOLOR2.g,	FISHCOLOR2.b,	// top left
+		 0.0f, -0.5f, 0.0f, FISHCOLOR1.r,	FISHCOLOR1.g,	FISHCOLOR1.b,	// bottom 
+		-0.4f, -1.0f, 0.0f, FISHCOLOR1.r,	FISHCOLOR1.g,	FISHCOLOR1.b,	// tail left
+		 0.4f, -1.0f, 0.0f, FISHCOLOR1.r,	FISHCOLOR1.g,	FISHCOLOR1.b,	// tail right 
+	};
+	unsigned int indices[] =
+	{
+		2, 1, 0,
+		2, 3, 1,
+		4, 5, 3
+	};
+
+
+	glGenVertexArrays(1, &VAO_fish);
+	glGenBuffers(1, &VBO_fish);
+	glGenBuffers(1, &EBO_fish);
+
+	glBindVertexArray(VAO_fish);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO_fish);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_fish);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+	// color attribute
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+}
 
 // --------------------------------------------- MEMORY MANAGEMENT FUNCTIONS ------------------------------------
 void cleanup()
@@ -236,6 +280,10 @@ void cleanup()
 	glDeleteVertexArrays(1, &VAO_alga);
 	glDeleteBuffers(1, &VBO_alga);
 	glDeleteBuffers(1, &EBO_alga);
+
+	glDeleteVertexArrays(1, &VAO_fish);
+	glDeleteBuffers(1, &VBO_fish);
+	glDeleteBuffers(1, &EBO_fish);
 
 	// glfw: terminate, clearing all previously allocated GLFW resources.
 	glfwTerminate();
@@ -274,6 +322,10 @@ void renderLoop(GLFWwindow* window, Shader shader)
 		glDrawElements(GL_TRIANGLES, 18, GL_UNSIGNED_INT, 0);
 
 		// render fish
+		glBindVertexArray(VAO_fish);
+		//model = glm::scale(model, glm::vec3(0.2, 0.2, 0.2));
+		shader.setMat4("model", model);
+		glDrawElements(GL_TRIANGLES, 9, GL_UNSIGNED_INT, 0);
 
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		glfwSwapBuffers(window);
