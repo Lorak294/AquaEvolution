@@ -2,7 +2,6 @@
 #include "device_launch_parameters.h"
 
 #include "headers/Shader.h"
-#include "headers/rendering.cuh"
 #include "headers/aquarium.cuh"
 
 #include <glad/glad.h>
@@ -38,7 +37,6 @@ void createBackgroundBuffers();
 void createAlgaBuffers();
 void cleanup();
 void renderLoop(GLFWwindow* window, Shader shader);
-//void copy_bitmap_to_host();
 void makeNewGeneration();
 void resetAquariumStruct(int algaeCount);
 void copyAquariumStructToDevice();
@@ -56,22 +54,14 @@ const glm::vec3 DEEPWATER = { 0.0f, 0.0f, 0.0f };
 const glm::vec3 ALGAECOLOR = { 0.0f, 1.0f, 0.0f };
 
 // settings
-const float alga::initaialSize = 0.5f;
-
-const unsigned int TX = 16;
-const unsigned int TY = 16;
-
-const bool GPU_RNEDER = true;
+const float Object::initaialSize = 0.5f;
+const unsigned int CELLSX = 10;
+const unsigned int CELLSY = 10;
 
 // global variables 
-aquarium hostAquarium;
+Aquarium hostAquarium;
 s_aquarium hostAquariumStruct;
 s_aquarium deviceAquariumStruct;
-int algaeCount = 1;
-
-double oneFrameTime;
-double copyTime;
-double renderTime;
 
 unsigned int VBO_bg, VAO_bg, EBO_bg;
 unsigned int VBO_alga, VAO_alga, EBO_alga;
@@ -266,19 +256,7 @@ void renderLoop(GLFWwindow* window, Shader shader)
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		//if (GPU_RNEDER)
-		//{
-		//	dim3 blocks(SCR_WIDTH / TX + 1, SCR_HEIGHT / TY + 1);
-		//	dim3 threads(TX, TY);
-
-		//	//render_GPU << <blocks, threads >> > (deviceBitmap, SCR_WIDTH, SCR_HEIGHT);
-		//	checkCudaErrors(cudaGetLastError());
-		//	checkCudaErrors(cudaDeviceSynchronize());
-		//}
-		//else
-		//{
-		//	render_CPU(hostBitmap, SCR_WIDTH, SCR_HEIGHT);
-		//}
+		// KERNEL HERE
 		
 		// model matrix
 		glm::mat4 model = glm::mat4(1.0f);
@@ -295,6 +273,8 @@ void renderLoop(GLFWwindow* window, Shader shader)
 		shader.setMat4("model", model);
 		glDrawElements(GL_TRIANGLES, 18, GL_UNSIGNED_INT, 0);
 
+		// render fish
+
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -305,105 +285,106 @@ void renderLoop(GLFWwindow* window, Shader shader)
 // --------------------------------------------- AQUARIUM MANAGEMENT FUNCTIONS ----------------------------------------------
 void makeNewGeneration()
 {
-	// copy alive algae to new aquarium
+	// copy alive objects to new aquarium
 	hostAquarium.readFromDeviceStruct(hostAquariumStruct, false);
 
-	// make new algae from each one
+	// make new objects from each one
 	hostAquarium.newGeneration();
 
-	// apply mutations and store algae in new arrays
-	resetAquariumStruct(hostAquarium.algae.size());
+	// apply mutations and store objects in new arrays
+	resetAquariumStruct(hostAquarium.objects.size());
 	hostAquarium.writeToDeviceStruct(hostAquariumStruct);
 }
 
 // --------------------------------------------- MEMORY MANAGEMENT FUNCTIONS ----------------------------------------------
-void resetAquariumStruct(int algaeCount)
+void resetAquariumStruct(int objectsCount)
 {
 	freeHostAquariumStruct();
-	mallocHostAquariumStruct(algaeCount);
+	mallocHostAquariumStruct(objectsCount);
 }
 void copyAquariumStructToDevice()
 {
-	int n = *(hostAquariumStruct.algaeCount);
-	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.algaeCount, hostAquariumStruct.algaeCount, sizeof(int), cudaMemcpyHostToDevice));
+	int n = *(hostAquariumStruct.objectsCount);
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.objectsCount, hostAquariumStruct.objectsCount, sizeof(int), cudaMemcpyHostToDevice));
 
-	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.algae.positions.x, hostAquariumStruct.algae.positions.x, sizeof(float)*n, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.algae.positions.y, hostAquariumStruct.algae.positions.y, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.objects.positions.x, hostAquariumStruct.objects.positions.x, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.objects.positions.y, hostAquariumStruct.objects.positions.y, sizeof(float)*n, cudaMemcpyHostToDevice));
 
-	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.algae.driftingVecs.x, hostAquariumStruct.algae.driftingVecs.x, sizeof(float)*n, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.algae.driftingVecs.y, hostAquariumStruct.algae.driftingVecs.y, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.objects.directionVecs.x, hostAquariumStruct.objects.directionVecs.x, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.objects.directionVecs.y, hostAquariumStruct.objects.directionVecs.y, sizeof(float)*n, cudaMemcpyHostToDevice));
 
-	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.algae.alives, hostAquariumStruct.algae.alives, sizeof(bool)*n, cudaMemcpyHostToDevice));
-	
-	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.algae.sizes, hostAquariumStruct.algae.sizes, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.objects.alives, hostAquariumStruct.objects.alives, sizeof(bool)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.objects.fish, hostAquariumStruct.objects.fish, sizeof(bool)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.objects.sizes, hostAquariumStruct.objects.sizes, sizeof(float)*n, cudaMemcpyHostToDevice));
 }
 void copyAquariumStructFromDevice()
 {
-	// NOTE: auuming sizes of arrays have not changed during kernel execution
-	int n = *(hostAquariumStruct.algaeCount);
+	// NOTE: asuming sizes of arrays have not changed during kernel execution
+	int n = *(hostAquariumStruct.objectsCount);
 	
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.algaeCount, deviceAquariumStruct.algaeCount, sizeof(int), cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objectsCount, deviceAquariumStruct.objectsCount, sizeof(int), cudaMemcpyDeviceToHost));
 
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.algae.positions.x, deviceAquariumStruct.algae.positions.x, sizeof(float)*n, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.algae.positions.y, deviceAquariumStruct.algae.positions.y, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.positions.x, deviceAquariumStruct.objects.positions.x, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.positions.y, deviceAquariumStruct.objects.positions.y, sizeof(float)*n, cudaMemcpyHostToDevice));
 
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.algae.driftingVecs.x, deviceAquariumStruct.algae.driftingVecs.x, sizeof(float)*n, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.algae.driftingVecs.y, deviceAquariumStruct.algae.driftingVecs.y, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.directionVecs.x, deviceAquariumStruct.objects.directionVecs.x, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.directionVecs.y, deviceAquariumStruct.objects.directionVecs.y, sizeof(float)*n, cudaMemcpyHostToDevice));
 
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.algae.alives, deviceAquariumStruct.algae.alives, sizeof(bool)*n, cudaMemcpyHostToDevice));
-
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.algae.sizes, deviceAquariumStruct.algae.sizes, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.alives, deviceAquariumStruct.objects.alives, sizeof(bool)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.fish, deviceAquariumStruct.objects.fish, sizeof(bool)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.sizes, deviceAquariumStruct.objects.sizes, sizeof(float)*n, cudaMemcpyHostToDevice));
 }
 void freeDeviceAquariumStruct()
 {
-	checkCudaErrors(cudaFree(deviceAquariumStruct.algaeCount));
+	checkCudaErrors(cudaFree(deviceAquariumStruct.objectsCount));
 
-	checkCudaErrors(cudaFree(deviceAquariumStruct.algae.positions.x));
-	checkCudaErrors(cudaFree(deviceAquariumStruct.algae.positions.y));
+	checkCudaErrors(cudaFree(deviceAquariumStruct.objects.positions.x));
+	checkCudaErrors(cudaFree(deviceAquariumStruct.objects.positions.y));
 
-	checkCudaErrors(cudaFree(deviceAquariumStruct.algae.driftingVecs.x));
-	checkCudaErrors(cudaFree(deviceAquariumStruct.algae.driftingVecs.y));
+	checkCudaErrors(cudaFree(deviceAquariumStruct.objects.directionVecs.x));
+	checkCudaErrors(cudaFree(deviceAquariumStruct.objects.directionVecs.y));
 
-	checkCudaErrors(cudaFree(deviceAquariumStruct.algae.alives));
-
-	checkCudaErrors(cudaFree(deviceAquariumStruct.algae.sizes));
+	checkCudaErrors(cudaFree(deviceAquariumStruct.objects.alives));
+	checkCudaErrors(cudaFree(deviceAquariumStruct.objects.fish));
+	checkCudaErrors(cudaFree(deviceAquariumStruct.objects.sizes));
 }
 void freeHostAquariumStruct()
 {
-	free(hostAquariumStruct.algaeCount);
+	free(hostAquariumStruct.objectsCount);
 
-	free(hostAquariumStruct.algae.positions.x);
-	free(hostAquariumStruct.algae.positions.y);
+	free(hostAquariumStruct.objects.positions.x);
+	free(hostAquariumStruct.objects.positions.y);
 
-	free(hostAquariumStruct.algae.driftingVecs.x);
-	free(hostAquariumStruct.algae.driftingVecs.y);
+	free(hostAquariumStruct.objects.directionVecs.x);
+	free(hostAquariumStruct.objects.directionVecs.y);
 
-	free(hostAquariumStruct.algae.alives);
-
-	free(hostAquariumStruct.algae.sizes);
+	free(hostAquariumStruct.objects.alives);
+	free(hostAquariumStruct.objects.fish);
+	free(hostAquariumStruct.objects.sizes);
 }
-void mallocHostAquariumStruct(int algaeCount)
+void mallocHostAquariumStruct(int objectsCount)
 {
-	hostAquariumStruct.algaeCount = (int*)malloc(sizeof(int)); // -> may be unnecessary
-	*(hostAquariumStruct.algaeCount) = algaeCount;
-	hostAquariumStruct.algae.positions.x = (float*)malloc(algaeCount * sizeof(float));
-	hostAquariumStruct.algae.positions.y = (float*)malloc(algaeCount * sizeof(float));
-	hostAquariumStruct.algae.driftingVecs.x = (float*)malloc(algaeCount * sizeof(float));
-	hostAquariumStruct.algae.driftingVecs.y = (float*)malloc(algaeCount * sizeof(float));
-	hostAquariumStruct.algae.alives = (bool*)malloc(algaeCount * sizeof(bool));
-	hostAquariumStruct.algae.sizes = (float*)malloc(algaeCount * sizeof(float));
+	hostAquariumStruct.objectsCount = (int*)malloc(sizeof(int)); // -> may be unnecessary
+	*(hostAquariumStruct.objectsCount) = objectsCount;
+	hostAquariumStruct.objects.positions.x = (float*)malloc(objectsCount * sizeof(float));
+	hostAquariumStruct.objects.positions.y = (float*)malloc(objectsCount * sizeof(float));
+	hostAquariumStruct.objects.directionVecs.x = (float*)malloc(objectsCount * sizeof(float));
+	hostAquariumStruct.objects.directionVecs.y = (float*)malloc(objectsCount * sizeof(float));
+	hostAquariumStruct.objects.alives = (bool*)malloc(objectsCount * sizeof(bool));
+	hostAquariumStruct.objects.fish = (bool*)malloc(objectsCount * sizeof(bool));
+	hostAquariumStruct.objects.sizes = (float*)malloc(objectsCount * sizeof(float));
 }
-void mallocDeviceAquariumStruct(int algaeCount)
+void mallocDeviceAquariumStruct(int objectsCount)
 {
-	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.algaeCount, sizeof(int)));
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.objectsCount, sizeof(int)));
 
-	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.algae.positions.x, sizeof(float)*algaeCount));
-	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.algae.positions.y, sizeof(float)*algaeCount));
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.objects.positions.x, sizeof(float)*objectsCount));
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.objects.positions.y, sizeof(float)*objectsCount));
 
-	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.algae.driftingVecs.x, sizeof(float)*algaeCount));
-	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.algae.driftingVecs.y, sizeof(float)*algaeCount));
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.objects.directionVecs.x, sizeof(float)*objectsCount));
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.objects.directionVecs.y, sizeof(float)*objectsCount));
 
-	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.algae.alives, sizeof(float)*algaeCount));
-
-	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.algae.sizes, sizeof(float)*algaeCount));
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.objects.alives, sizeof(bool)*objectsCount));
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.objects.fish, sizeof(bool)*objectsCount));
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.objects.sizes, sizeof(float)*objectsCount));
 }

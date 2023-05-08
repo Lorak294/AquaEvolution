@@ -81,10 +81,11 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="headers\algae.cuh" />
+    <ClInclude Include="headers\objects.cuh" />
     <ClInclude Include="headers\aquarium.cuh" />
     <ClInclude Include="headers\helper_math.cuh" />
-    <ClInclude Include="headers\rendering.cuh" />
+    <ClInclude Include="headers\deviceFunctions.cuh" />
+    <ClInclude Include="headers\scene.cuh" />
     <ClInclude Include="headers\Shader.h" />
     <ClInclude Include="headers\structures.cuh" />
   </ItemGroup>

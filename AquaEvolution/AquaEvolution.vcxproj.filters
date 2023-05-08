@@ -9,19 +9,22 @@
     <ClInclude Include="headers\Shader.h">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="headers\rendering.cuh">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="headers\helper_math.cuh">
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="headers\structures.cuh">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="headers\algae.cuh">
+    <ClInclude Include="headers\aquarium.cuh">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="headers\aquarium.cuh">
+    <ClInclude Include="headers\objects.cuh">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\deviceFunctions.cuh">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\scene.cuh">
       <Filter>headers</Filter>
     </ClInclude>
   </ItemGroup>

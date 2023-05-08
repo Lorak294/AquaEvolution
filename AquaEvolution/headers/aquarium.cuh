@@ -1,34 +1,35 @@
 #ifndef AQUARIUM
 #define AQUARIUM
 
-#include "algae.cuh";
+#include "objects.cuh";
 #include <vector>
 
 float2 randomVector();
 float randomFloat(float a, float b);
+std::vector<Object> createChildren(const Object& parent);
 
 
 struct s_aquarium 
 {
-	s_algae algae;
-	int* algaeCount;
+	s_objects objects;
+	int* objectsCount;
 };
 
-class aquarium
+class Aquarium
 {
 public:
-	std::vector<alga> algae;
+	std::vector<Object> objects;
 
-	aquarium(){}
+	Aquarium(){}
 
 	void readFromDeviceStruct(const s_aquarium& deviceStruct, bool includeDead)
 	{
-		algae.clear();
-		for (int i = 0; i < *(deviceStruct.algaeCount); i++)
+		objects.clear();
+		for (int i = 0; i < *(deviceStruct.objectsCount); i++)
 		{
-			if (includeDead || deviceStruct.algae.alives[i])
+			if (includeDead || deviceStruct.objects.alives[i])
 			{
-				algae.push_back(alga::readFromDeviceStruct(deviceStruct.algae, i));
+				objects.push_back(Object::readFromDeviceStruct(deviceStruct.objects, i));
 			}
 		}
 	}
@@ -37,40 +38,37 @@ public:
 	{
 		// NOTE: assuming deviceStruct has already been reallocated to new size
 		
-		for (int i=0; i<algae.size(); i++)
+		for (int i=0; i< objects.size(); i++)
 		{
-			algae[i].writeToDeviceStruct(deviceStruct.algae, i);
+			objects[i].writeToDeviceStruct(deviceStruct.objects, i);
 		}
 	}
 
 	// generates new generation based on current arrays state and stores data in arrays
 	void newGeneration()
 	{
-		//auto end = algae.end();
-		//for (auto it = algae.begin(); it != end; it++)
-		//{
-		//	// grow curr alaga
-		//	it->size = it->size * 1.5f;
-
-		//	// create new algae 
-		//	alga childAlga(it->position, randomVector(), alga::initaialSize);
-		//	algae.push_back(childAlga);
-		//}
-
-		int steps = algae.size();
+		int steps = objects.size();
 		for (int i = 0; i < steps; i++)
 		{
-			// grow curr alaga
-			algae[i].size *= 1.5f;
+			// grow curr object
+			objects[i].size *= 1.5f;
 
-			// create new algae 
-			alga childAlga(algae[i].position, randomVector(), alga::initaialSize);
-			algae.push_back(childAlga);
+			// create new generation
+			std::vector<Object> children = createChildren(objects[i]);
+			objects.insert(objects.end(), children.begin(), children.end());
 		}
 	}
 
 };
 
+
+std::vector<Object> createChildren(const Object& parent)
+{
+	// TEMPORARY IMPEMENTATION
+	std::vector<Object> children;
+	children.push_back(Object(parent.position, randomVector(), Object::initaialSize, parent.fish));
+	return children;
+}
 
 float2 randomVector()
 {
