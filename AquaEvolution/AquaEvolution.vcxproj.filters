@@ -27,6 +27,15 @@
     <ClInclude Include="headers\scene.cuh">
       <Filter>headers</Filter>
     </ClInclude>
+    <ClInclude Include="headers\structures.cuh">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\algae.cuh">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\aquarium.cuh">
+      <Filter>headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />
