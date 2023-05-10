@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <random>
+#include <chrono>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -88,6 +89,8 @@ int main()
 	srand(static_cast<unsigned> (time(0)));
 
 	GLFWwindow* window = createGLWindow();
+
+	std::cout << "HELLO" << std::endl;
 
 	// create shader
 	Shader shader("texture.vs", "texture.fs");
@@ -360,9 +363,12 @@ void renderAquarium(Shader shader)
 	// render objects
 	for each (Object o in hostAquarium.objects)
 	{
+		
 		float scaleX = (1.0f / AQUARIUM_WIDTH);
 		float scaleY = (1.0f / AQUARIUM_HEIGHT);
+		float angle = glm::acos(glm::dot(glm::vec3(0,1,0),glm::vec3(o.driftingVec.x,o.driftingVec.y,0)));
 		glm::mat4 mvpMat = glm::mat4(1.0f);
+		mvpMat = glm::rotate(mvpMat, angle, glm::vec3(0.0, 0.0, 1.0));
 		mvpMat = glm::scale(mvpMat, glm::vec3(scaleX, scaleY, 1));
 		mvpMat = glm::translate(mvpMat, glm::vec3(o.position.x - (AQUARIUM_WIDTH / 2), o.position.y - (AQUARIUM_HEIGHT / 2), 0));
 		mvpMat = glm::scale(mvpMat, glm::vec3(o.size, o.size, 1));
