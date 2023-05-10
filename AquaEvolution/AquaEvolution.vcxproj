@@ -92,7 +92,6 @@
     <ClInclude Include="headers\deviceFunctions.cuh" />
     <ClInclude Include="headers\scene.cuh" />
     <ClInclude Include="headers\Shader.h" />
-    <ClInclude Include="headers\structures.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />

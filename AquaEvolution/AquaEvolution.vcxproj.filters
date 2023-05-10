@@ -12,9 +12,6 @@
     <ClInclude Include="headers\helper_math.cuh">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="headers\structures.cuh">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="headers\aquarium.cuh">
       <Filter>headers</Filter>
     </ClInclude>
@@ -28,9 +25,6 @@
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="headers\structures.cuh">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="headers\algae.cuh">
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="headers\aquarium.cuh">

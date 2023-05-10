@@ -19,6 +19,7 @@ class Aquarium
 {
 private:
 	static const int maxObjCount;
+
 public:
 	std::vector<Object> objects;
 
@@ -76,6 +77,19 @@ public:
 			float2 pos = { randomFloat(Xbeg,Xend), randomFloat(Ybeg,Yend) };
 			objects.push_back(Object(pos, randomVector(), Object::initaialSize, false, true));
 		}
+	}
+
+	thrust::host_vector<uint> createCellArray(float cellWidth, float cellHeight)
+	{
+		int copySize = objects.size() > maxObjCount ? maxObjCount : objects.size();
+		
+		thrust::host_vector<uint> cellArr(copySize);
+
+		for (int i = 0; i < copySize; i++)
+		{
+			cellArr[i] = objects[i].hashCell(cellWidth, cellHeight);
+		}
+		return cellArr;
 	}
 };
 
