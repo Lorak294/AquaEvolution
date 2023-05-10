@@ -12,11 +12,13 @@ std::vector<Object> createChildren(const Object& parent);
 struct s_aquarium 
 {
 	s_objects objects;
-	int* objectsCount;
+	int objectsCount;
 };
 
 class Aquarium
 {
+private:
+	static const int maxObjCount;
 public:
 	std::vector<Object> objects;
 
@@ -25,7 +27,7 @@ public:
 	void readFromDeviceStruct(const s_aquarium& deviceStruct, bool includeDead)
 	{
 		objects.clear();
-		for (int i = 0; i < *(deviceStruct.objectsCount); i++)
+		for (int i = 0; i < deviceStruct.objectsCount; i++)
 		{
 			if (includeDead || deviceStruct.objects.alives[i])
 			{
@@ -37,8 +39,9 @@ public:
 	void writeToDeviceStruct(s_aquarium& deviceStruct)
 	{
 		// NOTE: assuming deviceStruct has already been reallocated to new size
+		int copySize = objects.size() > maxObjCount ? maxObjCount : objects.size();
 		
-		for (int i=0; i< objects.size(); i++)
+		for (int i=0; i< copySize; i++)
 		{
 			objects[i].writeToDeviceStruct(deviceStruct.objects, i);
 		}
@@ -58,7 +61,22 @@ public:
 			objects.insert(objects.end(), children.begin(), children.end());
 		}
 	}
-
+	
+	// generates new generation based of given number of objects with random values
+	void radnomGeneration(int fishCount, int algaeCount, int Xbeg, int Xend, int Ybeg, int Yend)
+	{
+		objects.clear();
+		for (int i = 0; i < fishCount; i++)
+		{
+			float2 pos = { randomFloat(Xbeg,Xend), randomFloat(Ybeg,Yend) };
+			objects.push_back(Object(pos, randomVector(), Object::initaialSize, true, true));
+		}
+		for (int i = 0; i < algaeCount; i++)
+		{
+			float2 pos = { randomFloat(Xbeg,Xend), randomFloat(Ybeg,Yend) };
+			objects.push_back(Object(pos, randomVector(), Object::initaialSize, false, true));
+		}
+	}
 };
 
 
