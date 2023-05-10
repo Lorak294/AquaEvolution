@@ -3,6 +3,11 @@
 
 #include "headers/Shader.h"
 #include "headers/aquarium.cuh"
+#include "headers/scene.cuh"
+
+#include <thrust/sort.h>
+#include <thrust/device_vector.h>
+#include <thrust/iterator/zip_iterator.h>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -311,7 +316,6 @@ void cleanup()
 void renderLoop(GLFWwindow* window, Shader shader)
 {
 	// we operate in simple 2D space so form MVP matrices M is enough
-
 	while (!glfwWindowShouldClose(window))
 	{
 		// input
@@ -350,20 +354,19 @@ void renderAquarium(Shader shader)
 
 	// render background
 	glBindVertexArray(VAO_bg);
-	shader.setMat4("model", glm::mat4(1.0f));
+	shader.setMat4("mvp", glm::mat4(1.0f));
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 	// render objects
 	for each (Object o in hostAquarium.objects)
 	{
-		float scaleX = (1.0f / AQUARIUM_WIDTH) * o.size;
-		float scaleY = (1.0f / AQUARIUM_HEIGHT) * o.size;
-		glm::mat4 scale = glm::mat4(1.0f);
-		glm::mat4 trans = glm::mat4(1.0f);
-		// SMTH IS WRONG WITH THIS - IDK 
-		//trans = glm::translate(trans, glm::vec3(o.position.x - SCR_WIDTH/2, o.position.y - SCR_HEIGHT/2, 0));
-		//scale = glm::scale(scale, glm::vec3(scaleX, scaleY, 1));
-		shader.setMat4("mvp", trans*scale);
+		float scaleX = (1.0f / AQUARIUM_WIDTH);
+		float scaleY = (1.0f / AQUARIUM_HEIGHT);
+		glm::mat4 mvpMat = glm::mat4(1.0f);
+		mvpMat = glm::scale(mvpMat, glm::vec3(scaleX, scaleY, 1));
+		mvpMat = glm::translate(mvpMat, glm::vec3(o.position.x - (AQUARIUM_WIDTH / 2), o.position.y - (AQUARIUM_HEIGHT / 2), 0));
+		mvpMat = glm::scale(mvpMat, glm::vec3(o.size, o.size, 1));
+		shader.setMat4("mvp", mvpMat);
 
 		if (o.fish)
 		{

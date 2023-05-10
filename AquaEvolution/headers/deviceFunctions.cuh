@@ -21,7 +21,7 @@ __global__ void simulateGeneration(s_aquarium aquarium, s_scene scene)
 
 __global__ void sortByCells(s_aquarium aquarium, s_scene scene)
 {
-
+	int objIdx = threadIdx.x 
 }
 __global__ void performMovement(s_aquarium aquarium, s_scene scene)
 {
