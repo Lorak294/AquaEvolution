@@ -6,6 +6,9 @@
 #include "scene.cuh"
 #include "helper_math.cuh"
 
+#include <curand_kernel.h>
+#include <curand.h>
+
 __global__ void simulateGeneration(s_aquarium aquarium, s_scene scene);
 __global__ void sortByCells(s_aquarium aquarium, s_scene scene);
 __global__ void performMovement(s_aquarium aquarium, s_scene scene);
@@ -22,6 +25,7 @@ __device__ float device_calc_light_power(float xNorm, float yNorm);
 // main kernel function
 __global__ void simulateGeneration(s_aquarium aquarium, s_scene scene)
 {
+	// TODO(kutakw): refactor
 	// standard parallel approach
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
 	if (id >= aquarium.objectsCount) return;
@@ -64,11 +68,11 @@ __global__ void simulateGeneration(s_aquarium aquarium, s_scene scene)
 			if (d > 0.01) {
 				vec_x /= d;
 				vec_y /= d;
-				//printf("d: %f, dist: %f\n", d, vec_x * vec_x + vec_y * vec_y);
 			}
 		}
 
 		if (eat_available) {
+			// TODO(kutakw): real eating :))
 			printf("%d: EATING algea nr %d\n", id, closest_algae_id);
 			return;
 		}
@@ -81,31 +85,21 @@ __global__ void simulateGeneration(s_aquarium aquarium, s_scene scene)
 		float& pos_y = aquarium.objects.positions.y[id];
 		float& vec_y = aquarium.objects.directionVecs.y[id];
 		pos_y += vec_y * 0.025f;
-		//printf("%d: pos: (%f, %f)\n", id, pos_x, pos_y);
-		//printf("%d: vec: (%f, %f)\n", id, vec_x, vec_y);
+
 	} else {
 		// CALCULATE ALGAE
+
+		// TODO(kutakw): generate random numbers
+		// https://docs.nvidia.com/cuda/curand/host-api-overview.html#generator-types
+		// https://docs.nvidia.com/cuda/curand/group__DEVICE.html#group__DEVICE_1gf1ba3a7a4a53b2bee1d7c1c7b837c00d
+		// curand_uniform for sobol32
+		curandStateScrambledSobol32_t state;
 
 		float& pos_x = aquarium.objects.positions.x[id];
 		pos_x += 0.01f;
 		float& pos_y = aquarium.objects.positions.y[id];
 		pos_y += 0.01f;
 	}
-
-
-
-	//float* pos_x = &aquarium.objects.positions.x[i];
-	//float* pos_y = &aquarium.objects.positions.y[i];
-
-	//float* vec_x = &aquarium.objects.directionVecs.x[i];
-	//float* vec_y = &aquarium.objects.directionVecs.y[i];
-
-	//if(i == 0)
-	//	printf("%d: (%f, %f)\n", i, *pos_x, *pos_y);
-
-	//// just fckin add those goddamn values
-	//*pos_x += 0.1f;
-	//*pos_y += 0.1f;
 }
 
 __global__ void sortByCells(s_aquarium aquarium, s_scene scene)
