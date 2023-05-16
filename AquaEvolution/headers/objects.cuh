@@ -25,10 +25,9 @@ public:
 	bool fish;
 	float size;
 
-	Object(float2 p, float2 dv, float s,bool fish, bool alive = true) : position(p), driftingVec(dv), size(s), fish(fish), alive(alive)
-	{
-
-	}
+	Object(float2 p, float2 dv, float s,bool fish, bool alive = true) : 
+		position(p), driftingVec(dv), size(s), fish(fish), alive(alive)
+	{}
 
 	void writeToDeviceStruct(s_objects& deviceStruct, int idx)
 	{
@@ -43,12 +42,20 @@ public:
 
 	static Object readFromDeviceStruct(const s_objects& deviceStruct, int idx)
 	{
-		return Object(
-			{ deviceStruct.positions.x[idx], deviceStruct.positions.y[idx] },
-			{ deviceStruct.directionVecs.x[idx], deviceStruct.directionVecs.y[idx] },
+		return Object
+		(
+			{ 
+				deviceStruct.positions.x[idx], 
+				deviceStruct.positions.y[idx]
+			},
+			{ 
+				deviceStruct.directionVecs.x[idx], 
+				deviceStruct.directionVecs.y[idx] 
+			},
 			deviceStruct.sizes[idx],
 			deviceStruct.fish[idx],
-			deviceStruct.alives[idx]);
+			deviceStruct.alives[idx]
+		);
 	}
 };
 

@@ -4,6 +4,7 @@
 #include "headers/Shader.h"
 #include "headers/aquarium.cuh"
 #include "headers/scene.cuh"
+#include "headers/deviceFunctions.cuh"
 
 #include <thrust/sort.h>
 #include <thrust/device_vector.h>
@@ -97,6 +98,7 @@ int main()
 
 	// initialize scene with radom objects
 	hostAquarium.radnomGeneration(10, 20, 0, AQUARIUM_WIDTH, 0, AQUARIUM_HEIGHT);
+	//hostAquarium.radnomGeneration(1, 1, 0, AQUARIUM_WIDTH, 0, AQUARIUM_HEIGHT);
 
 	// creating openGL buffers and drawing
 	createBuffers();
@@ -322,6 +324,15 @@ void renderLoop(GLFWwindow* window, Shader shader)
 		processInput(window);
 
 		// KERNEL HERE
+		hostAquarium.writeToDeviceStruct(hostAquariumStruct);
+		copyAquariumStructToDevice();
+
+		const int n = 1024;
+		int nblocks = hostAquariumStruct.objectsCount / n + 1;
+		simulateGeneration <<<nblocks, n>>> (deviceAquariumStruct, deviceSceneStruct);
+		checkCudaErrors(cudaDeviceSynchronize());
+		copyAquariumStructFromDevice();
+		hostAquarium.readFromDeviceStruct(hostAquariumStruct, true);
 
 		// render scene
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -406,17 +417,17 @@ void copyAquariumStructToDevice()
 }
 void copyAquariumStructFromDevice()
 {
-	int n = hostAquariumStruct.objectsCount = hostAquariumStruct.objectsCount;
+	int n = hostAquariumStruct.objectsCount = deviceAquariumStruct.objectsCount;
 
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.positions.x, deviceAquariumStruct.objects.positions.x, sizeof(float)*n, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.positions.y, deviceAquariumStruct.objects.positions.y, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.positions.x, deviceAquariumStruct.objects.positions.x, sizeof(float)*n, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.positions.y, deviceAquariumStruct.objects.positions.y, sizeof(float)*n, cudaMemcpyDeviceToHost));
 
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.directionVecs.x, deviceAquariumStruct.objects.directionVecs.x, sizeof(float)*n, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.directionVecs.y, deviceAquariumStruct.objects.directionVecs.y, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.directionVecs.x, deviceAquariumStruct.objects.directionVecs.x, sizeof(float)*n, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.directionVecs.y, deviceAquariumStruct.objects.directionVecs.y, sizeof(float)*n, cudaMemcpyDeviceToHost));
 
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.alives, deviceAquariumStruct.objects.alives, sizeof(bool)*n, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.fish, deviceAquariumStruct.objects.fish, sizeof(bool)*n, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.sizes, deviceAquariumStruct.objects.sizes, sizeof(float)*n, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.alives, deviceAquariumStruct.objects.alives, sizeof(bool)*n, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.fish, deviceAquariumStruct.objects.fish, sizeof(bool)*n, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.objects.sizes, deviceAquariumStruct.objects.sizes, sizeof(float) * n, cudaMemcpyDeviceToHost));
 }
 void mallocHostAquariumStruct(int objectsCount)
 {

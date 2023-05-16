@@ -41,6 +41,7 @@ public:
 		// NOTE: assuming deviceStruct has already been reallocated to new size
 		int copySize = objects.size() > maxObjCount ? maxObjCount : objects.size();
 		
+		deviceStruct.objectsCount = copySize;
 		for (int i=0; i< copySize; i++)
 		{
 			objects[i].writeToDeviceStruct(deviceStruct.objects, i);
