@@ -86,16 +86,19 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="headers\objects.cuh" />
-    <ClInclude Include="headers\aquarium.cuh" />
     <ClInclude Include="headers\helper_math.cuh" />
     <ClInclude Include="headers\deviceFunctions.cuh" />
     <ClInclude Include="headers\scene.cuh" />
     <ClInclude Include="headers\Shader.h" />
+    <ClInclude Include="headers\simulation_kernels.cuh" />
+    <ClInclude Include="headers\structs\algae.cuh" />
+    <ClInclude Include="headers\structs\aquarium.cuh" />
+    <ClInclude Include="headers\structs\fish.cuh" />
     <ClInclude Include="headers\structures.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />
+    <CudaCompile Include="simulation_kernels.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glad.c" />
