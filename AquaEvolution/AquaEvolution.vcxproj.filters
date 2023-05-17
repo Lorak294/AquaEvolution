@@ -4,6 +4,9 @@
     <Filter Include="headers">
       <UniqueIdentifier>{9b1a840b-6119-4f22-982b-3746969b0e0f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="headers\structs">
+      <UniqueIdentifier>{3cd480d2-1488-4efa-b12c-2090ab437264}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="headers\Shader.h">
@@ -12,27 +15,34 @@
     <ClInclude Include="headers\helper_math.cuh">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="headers\aquarium.cuh">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="headers\objects.cuh">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="headers\deviceFunctions.cuh">
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="headers\scene.cuh">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="headers\structures.cuh">
+    <ClInclude Include="headers\aquarium.cuh">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="headers\aquarium.cuh">
+    <ClInclude Include="headers\structs\algae.cuh">
+      <Filter>headers\structs</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\structs\aquarium.cuh">
+      <Filter>headers\structs</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\structs\fish.cuh">
+      <Filter>headers\structs</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\simulation_kernels.cuh">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\structures.cuh">
       <Filter>headers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />
+    <CudaCompile Include="simulation_kernels.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glad.c" />
