@@ -57,6 +57,7 @@ void mallocHostAquariumStruct(int fishesCount, int algaeCount);
 void mallocDeviceAquariumStruct(int fishesCount, int algaeCount);
 void mallocDeviceSceneStruct();
 void renderAquarium(Shader shader);
+glm::mat4 getMVP(float2 pos, float2 vec);
 
 // openGL parameters
 unsigned int SCR_WIDTH = 1000;
@@ -399,15 +400,7 @@ void renderAquarium(Shader shader)
 	// render objects
 	for each (Fish o in hostAquarium.fishes)
 	{
-		float scaleX = (1.0f / AQUARIUM_WIDTH);
-		float scaleY = (1.0f / AQUARIUM_HEIGHT);
-		//float angle = glm::acos(glm::dot(glm::vec3(0, 1, 0), glm::vec3(o.driftingVec.x, o.driftingVec.y, 0)));
-		glm::mat4 mvpMat = glm::mat4(1.0f);
-		mvpMat = glm::scale(mvpMat, glm::vec3(scaleX, scaleY, 1));
-		mvpMat = glm::translate(mvpMat, glm::vec3(o.position.x - (AQUARIUM_WIDTH / 2), o.position.y - (AQUARIUM_HEIGHT / 2), 0));
-		mvpMat = glm::scale(mvpMat, glm::vec3(o.size, o.size, 1));
-		//mvpMat = glm::rotate(mvpMat, angle, glm::vec3(0.0, 0.0, 1.0));
-		shader.setMat4("mvp", mvpMat);
+		shader.setMat4("mvp", getMVP(o.position,o.directionVec));
 
 		// render fish
 		glBindVertexArray(VAO_fish);
@@ -418,20 +411,27 @@ void renderAquarium(Shader shader)
 	{
 		if (!o.is_alive) continue;
 
-		float scaleX = (1.0f / AQUARIUM_WIDTH);
-		float scaleY = (1.0f / AQUARIUM_HEIGHT);
-		//float angle = glm::acos(glm::dot(glm::vec3(0, 1, 0), glm::vec3(o.driftingVec.x, o.driftingVec.y, 0)));
-		glm::mat4 mvpMat = glm::mat4(1.0f);
-		mvpMat = glm::scale(mvpMat, glm::vec3(scaleX, scaleY, 1));
-		mvpMat = glm::translate(mvpMat, glm::vec3(o.position.x - (AQUARIUM_WIDTH / 2), o.position.y - (AQUARIUM_HEIGHT / 2), 0));
-		mvpMat = glm::scale(mvpMat, glm::vec3(o.size, o.size, 1));
-		//mvpMat = glm::rotate(mvpMat, angle, glm::vec3(0.0, 0.0, 1.0));
-		shader.setMat4("mvp", mvpMat);
+		shader.setMat4("mvp", getMVP(o.position, o.directionVec));
 
 		// render alga
 		glBindVertexArray(VAO_alga);
 		glDrawElements(GL_TRIANGLES, 18, GL_UNSIGNED_INT, 0);
 	}
+}
+
+glm::mat4 getMVP(float2 pos, float2 vec)
+{
+	float scaleX = (2.0f / AQUARIUM_WIDTH);
+	float scaleY = (2.0f / AQUARIUM_HEIGHT);
+	glm::vec3 dirVec = glm::normalize(glm::vec3(vec.x, vec.y, 0));
+	float angle = glm::acos(glm::dot(dirVec, glm::vec3(0, 1, 0)));
+	if (vec.x > 0)
+		angle *= -1.0f;
+	glm::mat4 mvpMat = glm::mat4(1.0f);
+	mvpMat = glm::scale(mvpMat, glm::vec3(scaleX, scaleY, 1));
+	mvpMat = mvpMat = glm::translate(mvpMat, glm::vec3(pos.x - AQUARIUM_WIDTH / 2, pos.y - AQUARIUM_HEIGHT / 2, 0));
+	mvpMat = glm::rotate(mvpMat, angle, glm::vec3(0.0, 0.0, 1.0));
+	return mvpMat;
 }
 
 // --------------------------------------------- MEMORY MANAGEMENT FUNCTIONS ----------------------------------------------

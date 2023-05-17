@@ -44,6 +44,7 @@ __global__ void decision_fish(AquariumSoA aquarium, s_scene scene)
 	float& vec_y = aquarium.fishes.directionVecs.y[id];
 	vec_y = algae_y - fish_y;
 
+
 	float d = sqrtf(vec_x * vec_x + vec_y * vec_y);
 	if (d > 0.01f)
 	{
