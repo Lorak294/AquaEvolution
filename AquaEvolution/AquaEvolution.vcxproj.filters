@@ -15,12 +15,6 @@
     <ClInclude Include="headers\structures.cuh">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="headers\aquarium.cuh">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="headers\objects.cuh">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="headers\deviceFunctions.cuh">
       <Filter>headers</Filter>
     </ClInclude>
@@ -33,9 +27,16 @@
     <ClInclude Include="headers\aquarium.cuh">
       <Filter>headers</Filter>
     </ClInclude>
+    <ClInclude Include="headers\simulation_kernels.cuh">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\structs\fish.cuh" />
+    <ClInclude Include="headers\structs\algae.cuh" />
+    <ClInclude Include="headers\structs\aquarium.cuh" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />
+    <CudaCompile Include="simulation_kernels.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glad.c" />
