@@ -22,6 +22,8 @@ public:
 	static constexpr uint64_t maxObjCount = 10000;
 	std::vector<Fish> fishes;
 	std::vector<Algae> algae;
+	static constexpr float WIDTH = 100.0f;
+	static constexpr float HEIGHT = 100.0f;
 
 	Aquarium() {}
 

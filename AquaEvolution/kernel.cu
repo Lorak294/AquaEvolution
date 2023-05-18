@@ -337,7 +337,6 @@ void renderLoop(GLFWwindow* window, Shader shader)
 		int nblocks = std::max(
 			hostAquariumStruct.fishes.count, 
 			hostAquariumStruct.algae.count) / n + 1;
-		//simulateGeneration <<<nblocks, n>>> (deviceAquariumStruct, deviceSceneStruct);
 
 		decision_fish<<<nblocks, n>>>(deviceAquariumStruct, deviceSceneStruct);
 		decision_algae<<<nblocks, n>>>(deviceAquariumStruct, deviceSceneStruct);

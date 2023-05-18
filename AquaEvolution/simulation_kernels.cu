@@ -86,6 +86,21 @@ __global__ void decision_algae(AquariumSoA aquarium, s_scene scene)
 		vec_x /= denom;
 		vec_y /= denom;
 	}
+
+	// Bounces
+	// TODO(kutakw): wtf with those boundries
+	float pos_x = aquarium.algae.positions.x[id];
+	float new_pos_x = pos_x + vec_x;// *0.01f;
+	if (new_pos_x < -50.0f || new_pos_x >= 150.0f)
+		vec_x *= -1.0f;
+
+	float pos_y = aquarium.algae.positions.y[id];
+	float new_pos_y = pos_y + vec_y;// *0.01f;
+	if (new_pos_y < -50.0f || new_pos_y >= 150.0f)
+		vec_y *= -1.0f;
+
+	aquarium.algae.directionVecs.x[id] = vec_x;
+	aquarium.algae.directionVecs.y[id] = vec_y;
 }
 
 __global__ void move_fish(AquariumSoA aquarium, s_scene scene)
@@ -130,17 +145,17 @@ __global__ void move_algae(AquariumSoA aquarium, s_scene scene)
 
 	float& pos_x = aquarium.algae.positions.x[id];
 	float vec_x = aquarium.algae.directionVecs.x[id];
-	pos_x += vec_x * 0.01f;
+	pos_x += vec_x;// *0.01f;
 
 	float& pos_y = aquarium.algae.positions.y[id];
 	float vec_y = aquarium.algae.directionVecs.y[id];
-	pos_y += vec_y * 0.01f;
+	pos_y += vec_y;// *0.01f;
 }
 
-__global__ void sort_fish(AquariumSoA aquarium, s_scene)
+__global__ void sort_fish(AquariumSoA aquarium, s_scene scene)
 {
 }
 
-__global__ void sort_algae(AquariumSoA aquarium, s_scene)
+__global__ void sort_algae(AquariumSoA aquarium, s_scene scene)
 {
 }
