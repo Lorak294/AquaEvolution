@@ -24,9 +24,6 @@
     <ClInclude Include="headers\structures.cuh">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="headers\aquarium.cuh">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="headers\simulation_kernels.cuh">
       <Filter>headers</Filter>
     </ClInclude>
