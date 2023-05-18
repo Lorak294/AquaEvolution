@@ -4,6 +4,7 @@
 #include <vector_types.h>
 #include "../structures.cuh"
 #include <cstdint>
+#include <thrust/device_vector.h>
 
 enum class FishDecisionEnum
 {
@@ -13,14 +14,24 @@ enum class FishDecisionEnum
 struct FishSoA
 {
 	uint64_t count;
-
-	s_float2 positions;
-	s_float2 directionVecs;
+	float2* positions;
+	float2* directionVecs;
 	bool* alives;
 	float* sizes;
 	FishDecisionEnum* nextDecisions;
 	uint64_t* interactionEntityIds;
 	// ... other traits
+};
+
+struct FishThrustContainer
+{
+	thrust::device_vector<float2> positions;
+	thrust::device_vector<float2> directionVecs;
+	thrust::device_vector<bool> alives;
+	thrust::device_vector<float> sizes;
+	thrust::device_vector<FishDecisionEnum> nextDecisions;
+	thrust::device_vector<uint64_t> interactionEntityIds;
+	// possibly other traits
 };
 
 class Fish
@@ -43,33 +54,36 @@ public:
 	// MEMBER FUNCTIONS
 public:
 
-	void writeToDeviceStruct(FishSoA& deviceStruct, int idx)
+	void writeToDevice(FishThrustContainer& thrustFish, int idx)
 	{
-		deviceStruct.positions.x[idx] = position.x;
-		deviceStruct.positions.y[idx] = position.y;
-		deviceStruct.sizes[idx] = size;
-		deviceStruct.directionVecs.x[idx] = directionVec.x;
-		deviceStruct.directionVecs.y[idx] = directionVec.y;
-		deviceStruct.nextDecisions[idx] = nextDecision;
-		deviceStruct.alives[idx] = is_alive;
+		thrustFish.positions[idx] = position;
+		thrustFish.directionVecs[idx] = directionVec;
+		thrustFish.alives[idx] = is_alive;
+		thrustFish.interactionEntityIds[idx] = interactionEntityId;
+		thrustFish.sizes[idx] = size;
+		thrustFish.nextDecisions[idx] = nextDecision;
 	}
 
-	static Fish readFromDeviceStruct(const FishSoA& deviceStruct, int idx)
+	static Fish readFromDevice(const FishThrustContainer& thrustFish, int idx)
 	{
 		return Fish
 		(
-			{
-				deviceStruct.positions.x[idx],
-				deviceStruct.positions.y[idx]
-			},
-			{
-				deviceStruct.directionVecs.x[idx],
-				deviceStruct.directionVecs.y[idx]
-			},
-			deviceStruct.sizes[idx],
-			deviceStruct.alives[idx],
-			deviceStruct.nextDecisions[idx]
+			thrustFish.positions[idx],
+			thrustFish.directionVecs[idx],
+			thrustFish.sizes[idx],
+			thrustFish.alives[idx],
+			thrustFish.nextDecisions[idx]
 		);
+	}
+
+	uint calcCellHash(float cellWidth, float cellHeight)
+	{
+		return ((uint)(position.x / cellWidth) + ((uint)(position.y / cellHeight) << 16));
+	}
+
+	uint calcCellIdx(float cellWidth, float cellHeight, uint cellX)
+	{
+		return (uint)(position.x / cellWidth) + ((uint)(position.y / cellHeight) * cellX);
 	}
 private:
 };

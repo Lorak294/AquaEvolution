@@ -2,18 +2,28 @@
 #define SCENE_CUH
 
 // this struct is only for passing data to GPU kernel (kernel requires array pointers istead of thrust vectors)
-struct s_scene
+struct SceneThrustContainer
 {
-	int cellX;
-	int cellY;
-	float cellWidth;
-	float cellHieght;
-	int objCount;
+	// arrays that store objects sorted by cells
+	thrust::device_vector<uint> fishCellPositioning;
+	thrust::device_vector<uint> algaeCellPositioning;
+	// arrays that store cellSizes and indexes of the above
+	thrust::device_vector<uint> cellSizesFish;
+	thrust::device_vector<uint> cellSizesAlgae;
+	thrust::device_vector<uint> cellIndexesFish;
+	thrust::device_vector<uint> cellIndexesAlgae;
+};
 
-	//pointer to array that stores objects sorted by cells  1000x1000 10.000x10.0000
-	uint* objCellArray; // x << 16
-	//pointer to array that stores cellSizes and indexes in the objCellArray
-	uint* cellSizeArray;
+struct SceneSoA
+{
+	// pointers to arrays that store objects sorted by cells  => may even be unnecesarry to pass to kernel
+	uint* fishCellPositioning;
+	uint* algaeCellPositioning;
+	// pointers to array that store cellSizes and indexes of the above
+	uint* cellSizesFish;
+	uint* cellSizesAlgae;
+	uint* cellIndexesFish;
+	uint* cellIndexesAlgae;
 };
 
 #endif

@@ -1,17 +1,27 @@
-#include "../structures.cuh"
 #ifndef ALGAE_CUH
 #define ALGAE_CUH
+#include "../structures.cuh"
+#include <thrust/device_vector.h>
 
 
 struct AlgaeSoA
 {
 	uint64_t count;
-
-	s_float2 positions;
-	s_float2 directionVecs;
+	float2* positions;
+	float2* directionVecs;
 	bool* alives;
 	float* sizes;
 	// ... other traits
+};
+
+struct AlgaeThrustContainer
+{
+	thrust::device_vector<float2> positions;
+	thrust::device_vector<float2> directionVecs;
+	thrust::device_vector<bool> alives;
+	thrust::device_vector<float> sizes;
+
+	//possibly others
 };
 
 class Algae
@@ -32,31 +42,33 @@ public:
 	// MEMBER FUNCTIONS
 public:
 
-	void writeToDeviceStruct(AlgaeSoA& deviceStruct, int idx)
+	void writeToDevice(AlgaeThrustContainer& thrustAlgae, int idx)
 	{
-		deviceStruct.positions.x[idx] = position.x;
-		deviceStruct.positions.y[idx] = position.y;
-		deviceStruct.sizes[idx] = size;
-		deviceStruct.directionVecs.x[idx] = directionVec.x;
-		deviceStruct.directionVecs.y[idx] = directionVec.y;
-		deviceStruct.alives[idx] = is_alive;
+		thrustAlgae.positions[idx] = position;
+		thrustAlgae.sizes[idx] = size;
+		thrustAlgae.directionVecs[idx] = directionVec;
+		thrustAlgae.alives[idx] = is_alive;
 	}
 
-	static Algae readFromDeviceStruct(const AlgaeSoA& deviceStruct, int idx)
+	static Algae readFromDevice(const AlgaeThrustContainer& thrustAlgae, int idx)
 	{
 		return Algae
 		(
-			{
-				deviceStruct.positions.x[idx],
-				deviceStruct.positions.y[idx]
-			},
-			{
-				deviceStruct.directionVecs.x[idx],
-				deviceStruct.directionVecs.y[idx]
-			},
-			deviceStruct.sizes[idx],
-			deviceStruct.alives[idx]
+			thrustAlgae.positions[idx],
+			thrustAlgae.directionVecs[idx],
+			thrustAlgae.sizes[idx],
+			thrustAlgae.alives[idx]
 		);
+	}
+
+	uint calcCellHash(float cellWidth, float cellHeight)
+	{
+		return ((uint)(position.x / cellWidth) + ((uint)(position.y / cellHeight) << 16));
+	}
+
+	uint calcCellIdx(float cellWidth, float cellHeight,uint cellX)
+	{
+		return (uint)(position.x / cellWidth) + ((uint)(position.y / cellHeight) * cellX);
 	}
 private:
 };

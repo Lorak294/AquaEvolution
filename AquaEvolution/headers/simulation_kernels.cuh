@@ -12,7 +12,7 @@
 /// <param name="aquarium">Struct with objects in aquarium</param>
 /// <param name="scene">some scene bullshit</param>
 /// <returns>Nada</returns>
-__global__ void decision_fish(AquariumSoA aquarium, s_scene scene);
+__global__ void decision_fish(AquariumSoA aquarium, SceneSoA scene);
 
 /// <summary>
 /// Kernel to perform decision phase calculation for algae. 
@@ -20,7 +20,7 @@ __global__ void decision_fish(AquariumSoA aquarium, s_scene scene);
 /// <param name="aquarium">Struct with objects in aquarium</param>
 /// <param name="scene">some scene bullshit</param>
 /// <returns>Nada</returns>
-__global__ void decision_algae(AquariumSoA aquarium, s_scene scene);
+__global__ void decision_algae(AquariumSoA aquarium, SceneSoA scene);
 
 /// <summary>
 /// Kernel to perfom move phase calculation for fishes.
@@ -28,7 +28,7 @@ __global__ void decision_algae(AquariumSoA aquarium, s_scene scene);
 /// <param name="aquarium">Struct with objects in aquarium</param>
 /// <param name="scene">some scene bullshit</param>
 /// <returns>Nada</returns>
-__global__ void move_fish(AquariumSoA aquarium, s_scene scene);
+__global__ void move_fish(AquariumSoA aquarium, SceneSoA scene);
 
 /// <summary>
 /// Kernel to perfom move phase calculation for algae.
@@ -36,22 +36,22 @@ __global__ void move_fish(AquariumSoA aquarium, s_scene scene);
 /// <param name="aquarium">Struct with objects in aquarium</param>
 /// <param name="scene">some scene bullshit</param>
 /// <returns>Nada</returns>
-__global__ void move_algae(AquariumSoA aquarium, s_scene scene);
+__global__ void move_algae(AquariumSoA aquarium, SceneSoA scene);
 
-/// <summary>
-/// Kernel to perform backet/radix/whatever sort on fishes and verify their position in aquarium
-/// </summary>
-/// <param name="aquarium">Struct with objects in aquarium</param>
-/// <param name="scene">some scene bullshit</param>
-/// <returns>Nada</returns>
-__global__ void sort_fish(AquariumSoA aquarium, s_scene);
-
-/// <summary>
-/// Kernel to perform backet/radix/whatever sort on algae and verify their position in aquarium
-/// </summary>
-/// <param name="aquarium">Struct with objects in aquarium</param>
-/// <param name="scene">some scene bullshit</param>
-/// <returns>Nada</returns>
-__global__ void sort_algae(AquariumSoA aquarium, s_scene);
+///// <summary>
+///// Kernel to perform backet/radix/whatever sort on fishes and verify their position in aquarium
+///// </summary>
+///// <param name="aquarium">Struct with objects in aquarium</param>
+///// <param name="scene">some scene bullshit</param>
+///// <returns>Nada</returns>
+//__global__ void sort_fish(AquariumSoA aquarium, SceneSoA scene);
+//
+///// <summary>
+///// Kernel to perform backet/radix/whatever sort on algae and verify their position in aquarium
+///// </summary>
+///// <param name="aquarium">Struct with objects in aquarium</param>
+///// <param name="scene">some scene bullshit</param>
+///// <returns>Nada</returns>
+//__global__ void sort_algae(AquariumSoA aquarium, SceneSoA scene);
 
 #endif // !SIMULATION_KERNELS_H
