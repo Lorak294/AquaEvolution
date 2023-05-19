@@ -50,7 +50,7 @@ void renderLoop(GLFWwindow* window, Shader shader);
 void makeNewGeneration(AquariumThrustContainer& thrustAquarium);
 void renderAquarium(Shader shader);
 void calcIndexesFromSizes(const std::vector<uint>& sizes, std::vector<uint>& idxArray);
-glm::mat4 getMVP(float2 pos, float2 vec);
+glm::mat4 getMVP(float2 pos, float2 vec, float size);
 void prepareAndSortScene(AquariumThrustContainer& thrustAquarium, SceneThrustContainer& thrustScene);
 void fillKernelStructs(AquariumThrustContainer& thrustAquarium, SceneThrustContainer& thrustScene,
 	AquariumSoA& kernelAquarium, SceneSoA& kernelScene);
@@ -72,6 +72,7 @@ const unsigned int MAXOBJCOUNT = 100000;
 //const int Aquarium::maxObjCount = MAXOBJCOUNT;
 unsigned int AQUARIUM_WIDTH = 100;
 unsigned int AQUARIUM_HEIGHT = 100;
+int GENERATIONLIFETIME = 100;
 
 // global variables 
 Aquarium hostAquarium;
@@ -308,73 +309,80 @@ void cleanup()
 // --------------------------------------------- RENDERING FUNCTIONS ----------------------------------------------
 void renderLoop(GLFWwindow* window, Shader shader)
 {
-	// new every generation
 	SceneThrustContainer thrustScene;
 	AquariumThrustContainer thrustAquarium;
 
-	// we operate in simple 2D space so form MVP matrices M is enough
+	int generationCounter = 0;
 	while (!glfwWindowShouldClose(window))
 	{
-		// input
-		processInput(window);
+		std::string title = "Generation: " + std::to_string(++generationCounter);
+		glfwSetWindowTitle(window, title.c_str());
+		std::cout << "--- NEW GENERATION (" << generationCounter << ") ---"  << std::endl;
+		for (int i = 0; i < GENERATIONLIFETIME; i++)
+		{
+			// input
+			processInput(window);
 
-		// KERNEL HERE
-		auto start = std::chrono::high_resolution_clock::now();
-		hostAquarium.writeToDevice(thrustAquarium);
-		auto stop = std::chrono::high_resolution_clock::now();
-		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-		std::cout << "Writing to device: "<< duration.count() << " microseconds" << std::endl;
+			// KERNEL HERE
+			auto start = std::chrono::high_resolution_clock::now();
+			hostAquarium.writeToDevice(thrustAquarium);
+			auto stop = std::chrono::high_resolution_clock::now();
+			auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+			std::cout << "Writing to device: " << duration.count() << " microseconds" << std::endl;
 
-		// prepare structs to pass to kernel (objects with sorting by cell position)
-		prepareAndSortScene(thrustAquarium, thrustScene);
-		AquariumSoA kernelAquarium;
-		SceneSoA kernelScene;
-		fillKernelStructs(thrustAquarium, thrustScene, kernelAquarium, kernelScene);
+			// prepare structs to pass to kernel (objects with sorting by cell position)
+			prepareAndSortScene(thrustAquarium, thrustScene);
+			AquariumSoA kernelAquarium;
+			SceneSoA kernelScene;
+			fillKernelStructs(thrustAquarium, thrustScene, kernelAquarium, kernelScene);
 
-		const int n = 1024;
-		int nblocks = std::max(
-			thrustAquarium.fish.alives.size(),
-			thrustAquarium.algae.alives.size()) / n + 1;
-		//simulateGeneration <<<nblocks, n>>> (deviceAquariumStruct, deviceSceneStruct);
-		start = std::chrono::high_resolution_clock::now();
-		decision_fish << <nblocks, n >> > (kernelAquarium, kernelScene);
-		decision_algae << <nblocks, n >> > (kernelAquarium, kernelScene);
-		checkCudaErrors(cudaDeviceSynchronize());
+			const int n = 1024;
+			int nblocks = std::max(
+				thrustAquarium.fish.alives.size(),
+				thrustAquarium.algae.alives.size()) / n + 1;
+			//simulateGeneration <<<nblocks, n>>> (deviceAquariumStruct, deviceSceneStruct);
+			start = std::chrono::high_resolution_clock::now();
+			decision_fish << <nblocks, n >> > (kernelAquarium, kernelScene);
+			decision_algae << <nblocks, n >> > (kernelAquarium, kernelScene);
+			checkCudaErrors(cudaDeviceSynchronize());
 
-		move_fish << <nblocks, n >> > (kernelAquarium, kernelScene);
-		move_algae << <nblocks, n >> > (kernelAquarium, kernelScene);
-		checkCudaErrors(cudaDeviceSynchronize());
-		stop = std::chrono::high_resolution_clock::now();
-		duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-		std::cout << "Kernels execution: " << duration.count() << " microseconds" << std::endl;
+			move_fish << <nblocks, n >> > (kernelAquarium, kernelScene);
+			move_algae << <nblocks, n >> > (kernelAquarium, kernelScene);
+			checkCudaErrors(cudaDeviceSynchronize());
+			stop = std::chrono::high_resolution_clock::now();
+			duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+			std::cout << "Kernels execution: " << duration.count() << " microseconds" << std::endl;
 
-		start = std::chrono::high_resolution_clock::now();
-		hostAquarium.readFromDevice(thrustAquarium, true);
-		stop = std::chrono::high_resolution_clock::now();
-		duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-		std::cout << "Reading from device: " << duration.count() << " microseconds" << std::endl;
+			start = std::chrono::high_resolution_clock::now();
+			hostAquarium.readFromDevice(thrustAquarium, true);
+			stop = std::chrono::high_resolution_clock::now();
+			duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+			std::cout << "Reading from device: " << duration.count() << " microseconds" << std::endl;
 
-		//// Decision phase
-		//decision_fish();
-		//decision_algae();
-		//cudaDeviceSynchronize();
+			//// Decision phase
+			//decision_fish();
+			//decision_algae();
+			//cudaDeviceSynchronize();
 
-		//// move phase
-		//move_fish();
-		//move_algae();
-		//cudaDeviceSynchronize();
-
-
-		// render scene
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-		renderAquarium(shader);
+			//// move phase
+			//move_fish();
+			//move_algae();
+			//cudaDeviceSynchronize();
 
 
-		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-		glfwSwapBuffers(window);
-		glfwPollEvents();
+			// render scene
+			glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT);
+			renderAquarium(shader);
 
+
+			// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+			glfwSwapBuffers(window);
+			glfwPollEvents();
+			if (glfwWindowShouldClose(window))
+				break;
+		}
+		makeNewGeneration(thrustAquarium);
 	}
 }
 
@@ -484,7 +492,7 @@ void makeNewGeneration(AquariumThrustContainer& thrustAquarium)
 	hostAquarium.newGeneration();
 
 	// apply mutations and store objects in new arrays
-	hostAquarium.writeToDevice(thrustAquarium);
+	//hostAquarium.writeToDevice(thrustAquarium);
 }
 void renderAquarium(Shader shader)
 {
@@ -498,7 +506,7 @@ void renderAquarium(Shader shader)
 	// render objects
 	for each (Fish o in hostAquarium.fish)
 	{
-		shader.setMat4("mvp", getMVP(o.position,o.directionVec));
+		shader.setMat4("mvp", getMVP(o.position,o.directionVec,o.size));
 
 		// render fish
 		glBindVertexArray(VAO_fish);
@@ -509,7 +517,7 @@ void renderAquarium(Shader shader)
 	{
 		if (!o.is_alive) continue;
 
-		shader.setMat4("mvp", getMVP(o.position, o.directionVec));
+		shader.setMat4("mvp", getMVP(o.position, o.directionVec,o.size));
 
 		// render alga
 		glBindVertexArray(VAO_alga);
@@ -517,7 +525,7 @@ void renderAquarium(Shader shader)
 	}
 }
 
-glm::mat4 getMVP(float2 pos, float2 vec)
+glm::mat4 getMVP(float2 pos, float2 vec, float size)
 {
 	float scaleX = (2.0f / AQUARIUM_WIDTH);
 	float scaleY = (2.0f / AQUARIUM_HEIGHT);
@@ -529,5 +537,6 @@ glm::mat4 getMVP(float2 pos, float2 vec)
 	mvpMat = glm::scale(mvpMat, glm::vec3(scaleX, scaleY, 1));
 	mvpMat = mvpMat = glm::translate(mvpMat, glm::vec3(pos.x - AQUARIUM_WIDTH / 2, pos.y - AQUARIUM_HEIGHT / 2, 0));
 	mvpMat = glm::rotate(mvpMat, angle, glm::vec3(0.0, 0.0, 1.0));
+	mvpMat = glm::scale(mvpMat, glm::vec3(size, size, 1));
 	return mvpMat;
 }
