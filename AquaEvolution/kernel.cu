@@ -66,8 +66,8 @@ const glm::vec3 FISHCOLOR2 = { 0.85f, 0.7f, 0.2f };
 
 // scene settings
 //const float Object::initaialSize = 1.0f;
-const unsigned int CELLSX = 1000;
-const unsigned int CELLSY = 1000;
+const unsigned int CELLSX = 10;
+const unsigned int CELLSY = 10;
 const unsigned int MAXOBJCOUNT = 100000;
 //const int Aquarium::maxObjCount = MAXOBJCOUNT;
 unsigned int AQUARIUM_WIDTH = 100;
@@ -92,7 +92,7 @@ int main()
 	// iniitalize memory buffers
 
 	// initialize scene with radom objects
-	hostAquarium.radnomGeneration(10, 20, 0, AQUARIUM_WIDTH, 0, AQUARIUM_HEIGHT);
+	hostAquarium.radnomGeneration(5, 50, 0, AQUARIUM_WIDTH, 0, AQUARIUM_HEIGHT);
 	//hostAquarium.radnomGeneration(1, 1, 0, AQUARIUM_WIDTH, 0, AQUARIUM_HEIGHT);
 
 	// creating openGL buffers and drawing
@@ -391,7 +391,7 @@ void prepareAndSortScene(AquariumThrustContainer& thrustAquarium, SceneThrustCon
 	// calculating device arrays for sorting and filling local host-side sizes
 	auto start = std::chrono::high_resolution_clock::now();
 	thrustScene.fishCellPositioning = hostAquarium.calcFishCellArray(cellWidth, cellHeight,CELLSX,fishCellSizes);
-	thrustScene.algaeCellPositioning = hostAquarium.calcFishCellArray(cellWidth, cellHeight,CELLSX,algaeCellSizes);
+	thrustScene.algaeCellPositioning = hostAquarium.calcAlgaeCellArray(cellWidth, cellHeight,CELLSX,algaeCellSizes);
 	auto stop = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 	std::cout << "filling cellPositioning arrays: " << duration.count() << " microseconds" << std::endl;
@@ -457,6 +457,12 @@ void fillKernelStructs(AquariumThrustContainer& thrustAquarium, SceneThrustConta
 	kernelScene.fishCellPositioning = thrust::raw_pointer_cast(&thrustScene.fishCellPositioning[0]);
 	kernelScene.cellSizesFish = thrust::raw_pointer_cast(&thrustScene.cellSizesFish[0]);
 	kernelScene.cellIndexesFish = thrust::raw_pointer_cast(&thrustScene.cellIndexesFish[0]);
+
+	// scene parameters
+	kernelScene.cellWidth = (float)AQUARIUM_WIDTH / CELLSX;
+	kernelScene.cellHeight = (float)AQUARIUM_HEIGHT / CELLSY;
+	kernelScene.cellX = CELLSX;
+	kernelScene.cellY = CELLSY;
 }
 
 void calcIndexesFromSizes(const std::vector<uint>& sizes, std::vector<uint>& idxArray)

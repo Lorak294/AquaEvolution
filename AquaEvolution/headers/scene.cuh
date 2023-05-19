@@ -16,6 +16,10 @@ struct SceneThrustContainer
 
 struct SceneSoA
 {
+	float cellWidth;
+	float cellHeight;
+	int cellX;
+	int cellY;
 	// pointers to arrays that store objects sorted by cells  => may even be unnecesarry to pass to kernel
 	uint* fishCellPositioning;
 	uint* algaeCellPositioning;
