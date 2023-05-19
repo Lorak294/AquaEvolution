@@ -19,6 +19,7 @@
 #include <string>
 #include <cstdlib>
 #include <ctime>
+#include <chrono>
 #include <random>
 
 #include <glm/glm.hpp>
@@ -48,7 +49,7 @@ void cleanup();
 void renderLoop(GLFWwindow* window, Shader shader);
 void makeNewGeneration(AquariumThrustContainer& thrustAquarium);
 void renderAquarium(Shader shader);
-std::vector<uint> calcIndexesFromSizes(const std::vector<uint>& sizes);
+void calcIndexesFromSizes(const std::vector<uint>& sizes, std::vector<uint>& idxArray);
 glm::mat4 getMVP(float2 pos, float2 vec);
 void prepareAndSortScene(AquariumThrustContainer& thrustAquarium, SceneThrustContainer& thrustScene);
 void fillKernelStructs(AquariumThrustContainer& thrustAquarium, SceneThrustContainer& thrustScene,
@@ -318,7 +319,11 @@ void renderLoop(GLFWwindow* window, Shader shader)
 		processInput(window);
 
 		// KERNEL HERE
+		auto start = std::chrono::high_resolution_clock::now();
 		hostAquarium.writeToDevice(thrustAquarium);
+		auto stop = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+		std::cout << "Writing to device: "<< duration.count() << " microseconds" << std::endl;
 
 		// prepare structs to pass to kernel (objects with sorting by cell position)
 		prepareAndSortScene(thrustAquarium, thrustScene);
@@ -331,17 +336,23 @@ void renderLoop(GLFWwindow* window, Shader shader)
 			thrustAquarium.fish.alives.size(),
 			thrustAquarium.algae.alives.size()) / n + 1;
 		//simulateGeneration <<<nblocks, n>>> (deviceAquariumStruct, deviceSceneStruct);
-
+		start = std::chrono::high_resolution_clock::now();
 		decision_fish << <nblocks, n >> > (kernelAquarium, kernelScene);
-		checkCudaErrors(cudaDeviceSynchronize());
 		decision_algae << <nblocks, n >> > (kernelAquarium, kernelScene);
 		checkCudaErrors(cudaDeviceSynchronize());
 
 		move_fish << <nblocks, n >> > (kernelAquarium, kernelScene);
-		checkCudaErrors(cudaDeviceSynchronize());
 		move_algae << <nblocks, n >> > (kernelAquarium, kernelScene);
 		checkCudaErrors(cudaDeviceSynchronize());
+		stop = std::chrono::high_resolution_clock::now();
+		duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+		std::cout << "Kernels execution: " << duration.count() << " microseconds" << std::endl;
+
+		start = std::chrono::high_resolution_clock::now();
 		hostAquarium.readFromDevice(thrustAquarium, true);
+		stop = std::chrono::high_resolution_clock::now();
+		duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+		std::cout << "Reading from device: " << duration.count() << " microseconds" << std::endl;
 
 		//// Decision phase
 		//decision_fish();
@@ -378,16 +389,30 @@ void prepareAndSortScene(AquariumThrustContainer& thrustAquarium, SceneThrustCon
 	std::vector<uint> algaeCellSizes(CELLSX*CELLSY,0);
 
 	// calculating device arrays for sorting and filling local host-side sizes
+	auto start = std::chrono::high_resolution_clock::now();
 	thrustScene.fishCellPositioning = hostAquarium.calcFishCellArray(cellWidth, cellHeight,CELLSX,fishCellSizes);
 	thrustScene.algaeCellPositioning = hostAquarium.calcFishCellArray(cellWidth, cellHeight,CELLSX,algaeCellSizes);
+	auto stop = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+	std::cout << "filling cellPositioning arrays: " << duration.count() << " microseconds" << std::endl;
+	
 	// calculate device idxArrays
-	thrustScene.cellIndexesFish = calcIndexesFromSizes(fishCellSizes);
-	thrustScene.cellIndexesAlgae = calcIndexesFromSizes(algaeCellSizes);
+	start = std::chrono::high_resolution_clock::now();
+	std::vector<uint> cellIndexesFish(CELLSX*CELLSY, 0);
+	std::vector<uint> cellIndexesAlgae(CELLSX*CELLSY, 0);
+	calcIndexesFromSizes(fishCellSizes, cellIndexesFish);
+	calcIndexesFromSizes(algaeCellSizes, cellIndexesAlgae);
+	thrustScene.cellIndexesFish = cellIndexesFish;
+	thrustScene.cellIndexesAlgae = cellIndexesAlgae;
+	stop = std::chrono::high_resolution_clock::now();
+	duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+	std::cout << "calculating Idx arrays: " << duration.count() << " microseconds" << std::endl;
+	
 	// copy sizes to device
 	thrustScene.cellSizesFish = fishCellSizes;
 	thrustScene.cellSizesAlgae = algaeCellSizes;
 
-	// sort positioning by hash together with arguments
+	start = std::chrono::high_resolution_clock::now();
 	thrust::sort_by_key(thrustScene.fishCellPositioning.begin(), thrustScene.fishCellPositioning.end(),
 		thrust::make_zip_iterator(make_tuple(
 			thrustAquarium.fish.alives.begin(),
@@ -400,6 +425,10 @@ void prepareAndSortScene(AquariumThrustContainer& thrustAquarium, SceneThrustCon
 			thrustAquarium.algae.directionVecs.begin(),
 			thrustAquarium.algae.positions.begin(),
 			thrustAquarium.algae.sizes.begin())));
+	stop = std::chrono::high_resolution_clock::now();
+	duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+	std::cout << "ZIP iterator sorting: " << duration.count() << " microseconds" << std::endl;
+	// sort positioning by hash together with arguments
 }
 
 void fillKernelStructs(AquariumThrustContainer& thrustAquarium, SceneThrustContainer& thrustScene,
@@ -430,16 +459,13 @@ void fillKernelStructs(AquariumThrustContainer& thrustAquarium, SceneThrustConta
 	kernelScene.cellIndexesFish = thrust::raw_pointer_cast(&thrustScene.cellIndexesFish[0]);
 }
 
-std::vector<uint> calcIndexesFromSizes(const std::vector<uint>& sizes)
+void calcIndexesFromSizes(const std::vector<uint>& sizes, std::vector<uint>& idxArray)
 {
-	std::vector<uint> idxArray(sizes.size(), 0);
-
+	idxArray[0] = 0;
 	for (int i = 1; i < sizes.size(); i++)
 	{
 		idxArray[i] = idxArray[i - 1] + sizes[i - 1];
 	}
-
-	return idxArray;
 }
 
 
