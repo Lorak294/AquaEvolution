@@ -336,31 +336,14 @@ void renderLoop(GLFWwindow* window, Shader shader)
 
 		const int n = 1024;
 		int nblocks = std::max(
-			hostAquariumStruct.fishes.count, 
+			hostAquariumStruct.fishes.count,
 			hostAquariumStruct.algae.count) / n + 1;
 
-		decision_fish<<<nblocks, n>>>(deviceAquariumStruct, deviceSceneStruct);
-		decision_algae<<<nblocks, n>>>(deviceAquariumStruct, deviceSceneStruct);
-		checkCudaErrors(cudaDeviceSynchronize());
-
-		move_fish<<<nblocks, n>>>(deviceAquariumStruct, deviceSceneStruct);
-		move_algae<<<nblocks, n>>>(deviceAquariumStruct, deviceSceneStruct);
-		checkCudaErrors(cudaDeviceSynchronize());
+		simulate_generation << <nblocks, n >> > (deviceAquariumStruct);
 
 		checkCudaErrors(cudaDeviceSynchronize());
 		copyAquariumStructFromDevice();
 		hostAquarium.readFromDeviceStruct(hostAquariumStruct, true);
-		
-		//// Decision phase
-		//decision_fish();
-		//decision_algae();
-		//cudaDeviceSynchronize();
-
-		//// move phase
-		//move_fish();
-		//move_algae();
-		//cudaDeviceSynchronize();
-
 
 		// render scene
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);

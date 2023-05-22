@@ -58,4 +58,48 @@ __global__ void new_generation_fish(AquariumSoA aquarium);
 
 __global__ void new_generation_algae(AquariumSoA aquarium);
 
+/// <summary>
+/// New approach to kernel execution, no parallel for fishes and algae
+/// 1. Fish decision
+/// 2. Algae decision
+/// 3. Fish move
+/// 4. Algae move
+/// 5. Fish and Algae sort
+/// </summary>
+/// <param name="aquarium"></param>
+/// <returns></returns>
+__global__ void simulate_generation(AquariumSoA aquarium);
+
+__device__ 
+//static inline 
+void fish_decision(
+	AquariumSoA* aquarium,
+	uint32_t start_val,
+	uint32_t incr_val
+	);
+
+__device__ 
+//static inline 
+void algae_decision(
+	AquariumSoA* aquarium,
+	uint32_t start_val,
+	uint32_t incr_val
+	);
+
+__device__ 
+//static inline 
+void fish_move(
+	AquariumSoA* aquarium,
+	uint32_t start_val,
+	uint32_t incr_val
+	);
+
+__device__ 
+//static inline 
+void algae_move(
+	AquariumSoA* aquarium,
+	uint32_t start_val,
+	uint32_t incr_val
+	);
+
 #endif // !SIMULATION_KERNELS_H
