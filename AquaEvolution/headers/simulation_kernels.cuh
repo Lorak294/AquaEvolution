@@ -54,4 +54,8 @@ __global__ void sort_fish(AquariumSoA aquarium, s_scene);
 /// <returns>Nada</returns>
 __global__ void sort_algae(AquariumSoA aquarium, s_scene);
 
+__global__ void new_generation_fish(AquariumSoA aquarium);
+
+__global__ void new_generation_algae(AquariumSoA aquarium);
+
 #endif // !SIMULATION_KERNELS_H
