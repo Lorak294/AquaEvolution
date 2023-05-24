@@ -106,7 +106,7 @@ int main()
 
 	// initialize scene with radom objects
 	//hostAquarium.radnomGeneration(10, 20, 0, AQUARIUM_WIDTH, 0, AQUARIUM_HEIGHT);
-	hostAquarium.radnomGeneration(10, 400, -50, 150, -50, 150);
+	hostAquarium.radnomGeneration(10, 400, 0, AQUARIUM_WIDTH, 0, AQUARIUM_HEIGHT);
 	//hostAquarium.radnomGeneration(1, 1, -50, 150, -50, 150);
 
 	// creating openGL buffers and drawing

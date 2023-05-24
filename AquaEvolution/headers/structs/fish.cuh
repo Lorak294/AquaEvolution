@@ -34,7 +34,7 @@ class Fish
 public:
 	// CONST VALUES
 
-	static constexpr float initaialSize				= 0.1f;
+	static constexpr float initaialSize				= 0.5f;
 
 	static constexpr float HUNGER_MIN				= 0.0f;
 	static constexpr float HUNGER_INITIAL			= 50.0f;
