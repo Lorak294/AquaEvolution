@@ -411,8 +411,8 @@ void renderAquarium(Shader shader)
 
 glm::mat4 getMVP(float2 pos, float2 vec, float size)
 {
-	float scaleX = (1.0f / AQUARIUM_WIDTH);
-	float scaleY = (1.0f / AQUARIUM_HEIGHT);
+	float scaleX = (2.0f / AQUARIUM_WIDTH);
+	float scaleY = (2.0f / AQUARIUM_HEIGHT);
 	glm::vec3 dirVec = glm::normalize(glm::vec3(vec.x, vec.y, 0));
 	float angle = glm::acos(glm::dot(dirVec, glm::vec3(0, 1, 0)));
 	if (vec.x > 0)

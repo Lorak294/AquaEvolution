@@ -18,7 +18,7 @@ class Algae
 {
 	// FIELDS
 public:
-	static constexpr float initaialSize = 1.0f;
+	static constexpr float initaialSize = 0.1f;
 
 	float2 position;
 	float2 directionVec;

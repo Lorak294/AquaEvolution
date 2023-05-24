@@ -11,13 +11,17 @@
 constexpr uint64_t FISH_COUNT_ID			= 0;
 constexpr uint64_t ALGAE_COUNT_ID			= 1;
 constexpr float ALGAE_HUNGER_VALUE			= -40.f;
+constexpr float AQUARIUM_LEFT_BORDER		= 0.f;
+constexpr float AQUARIUM_BOTTOM_BORDER		= 0.f;
+constexpr float AQUARIUM_RIGHT_BORDER		= 100.f;
+constexpr float AQUARIUM_TOP_BORDER			= 100.f;
 
 /////////////////////////////////////////////////////////////////////////////
 
 #ifndef NDEBUG
 constexpr float FISH_VELOCITY				= 0.01f;
 constexpr float ALGAE_VELOCITY				= 0.008f;
-constexpr uint64_t TICKS_PER_GENERATION		= 10;
+constexpr uint64_t TICKS_PER_GENERATION		= 100;
 #else
 constexpr float FISH_VELOCITY				= 0.005f;
 constexpr float ALGAE_VELOCITY				= 0.0001f;
@@ -146,14 +150,14 @@ void algae_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val
 		// TODO(kutakw): wtf with those boundries
 		float pos_x = aquarium->algae.positions.x[id];
 		float new_pos_x = pos_x + vec_x * ALGAE_VELOCITY;
-		if (new_pos_x < -50.0f || new_pos_x >= 150.0f)
+		if (new_pos_x < AQUARIUM_LEFT_BORDER || new_pos_x >= AQUARIUM_RIGHT_BORDER)
 			vec_x *= -1.0f;
 
 		aquarium->algae.directionVecs.x[id] = vec_x;
 
 		float pos_y = aquarium->algae.positions.y[id];
 		float new_pos_y = pos_y + vec_y * ALGAE_VELOCITY;
-		if (new_pos_y < -50.0f || new_pos_y >= 150.0f)
+		if (new_pos_y < AQUARIUM_BOTTOM_BORDER || new_pos_y >= AQUARIUM_TOP_BORDER)
 			vec_y *= -1.0f;
 
 		aquarium->algae.directionVecs.y[id] = vec_y;
