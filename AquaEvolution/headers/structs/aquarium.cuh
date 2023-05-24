@@ -88,7 +88,7 @@ public:
 			if (fishes[i].is_alive == FishAliveEnum::DEAD) continue;
 
 			// grow curr object
-			fishes[i].size *= 1.1f;
+			fishes[i].stats.size *= 1.1f;
 			fishes_second.push_back(fishes[i]);
 
 			// create new generation
@@ -112,7 +112,7 @@ public:
 		//	algae_second.push_back(algae[i]);
 
 		//	// create new generation
-		//	std::vector<Algae> children = createChildren(algae[i]);
+		//	std::vector<Algae> children = createChildren(algae[i]); // <- rewrite template or algae struct to have .stats.size as well constructor used in template 
 		//	assert((void
 		//			("algae size + children >= algae capacity"),
 		//			algae_second.size() + children.size() < algae_second.capacity()));
@@ -125,11 +125,12 @@ public:
 	// generates new generation based of given number of objects with random values
 	void radnomGeneration(int fishCount, int algaeCount, int Xbeg, int Xend, int Ybeg, int Yend)
 	{
+		struct Stats iniitalStats = Stats();
 		fishes.clear();
 		for (int i = 0; i < fishCount; i++)
 		{
 			float2 pos = { randomFloat(Xbeg,Xend), randomFloat(Ybeg,Yend) };
-			fishes.push_back(Fish(pos, randomVector(), Fish::initaialSize));
+			fishes.push_back(Fish(pos, randomVector(), iniitalStats));
 		}
 
 		algae.clear();
@@ -155,8 +156,8 @@ std::vector<T> createChildren(const T& parent)
 			parent.position.y + offsety,
 		}, 
 		randomVector(), 
-		//T::initaialSize));
-		parent.size));
+		Stats()
+		));
 	return children;
 }
 

@@ -10,7 +10,7 @@
 
 constexpr uint64_t FISH_COUNT_ID			= 0;
 constexpr uint64_t ALGAE_COUNT_ID			= 1;
-constexpr float ALGAE_HUNGER_VALUE			= -40.f;
+constexpr float ALGAE_ENERGY_VALUE			= 40.f;
 constexpr float AQUARIUM_LEFT_BORDER		= 0.f;
 constexpr float AQUARIUM_BOTTOM_BORDER		= 0.f;
 constexpr float AQUARIUM_RIGHT_BORDER		= 100.f;
@@ -23,9 +23,9 @@ constexpr float FISH_VELOCITY				= 0.01f;
 constexpr float ALGAE_VELOCITY				= 0.008f;
 constexpr uint64_t TICKS_PER_GENERATION		= 100;
 #else
-constexpr float FISH_VELOCITY				= 0.005f;
-constexpr float ALGAE_VELOCITY				= 0.0001f;
-constexpr uint64_t TICKS_PER_GENERATION		= 1000;
+constexpr float FISH_VELOCITY				= 0.01f;
+constexpr float ALGAE_VELOCITY				= 0.008f;
+constexpr uint64_t TICKS_PER_GENERATION		= 100;
 #endif
 
 __global__ void simulate_generation(AquariumSoA aquarium)
@@ -54,6 +54,29 @@ __global__ void simulate_generation(AquariumSoA aquarium)
 	}
 }
 
+// returns algae distance or -1 if fish cannot see the algae
+__device__ float algae_in_sight_dist(AquariumSoA* aquarium, uint32_t fishId, size_t algaId)
+{
+	float2 algaPos = { aquarium->algae.positions.x[algaId], aquarium->algae.positions.y[algaId] };
+	float2 fishPos = { aquarium->fishes.positions.x[fishId], aquarium->fishes.positions.y[fishId] };
+	float2 fishVec = { aquarium->fishes.directionVecs.x[fishId], aquarium->fishes.directionVecs.y[fishId] };
+
+	float2 vecToAlga = algaPos - fishPos;
+
+	float dist = length(vecToAlga);
+
+	//check distance
+	if (dist > aquarium->fishes.stats.sightDist[fishId])
+		return -1.f;
+
+	// check angle
+	float cosine = dot(fishVec, vecToAlga/dist);
+	if (cosine < aquarium->fishes.stats.sightAngle[fishId])
+		return -1.f;
+
+	return dist;
+}
+
 __device__ void fish_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
 {
 	uint32_t id;
@@ -71,20 +94,19 @@ __device__ void fish_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_
 
 		// Loop through all algea and find closest one
 		int closest_algae_id = -1;
-		float closest_algae_dist_sq = FLT_MAX;
+		float closest_algae_dist = FLT_MAX;
 
 		for (size_t i = 0; i < count[ALGAE_COUNT_ID]; ++i)
 		{
 			if (!aquarium->algae.alives[i]) continue;
 
-			float algae_x = aquarium->algae.positions.x[i];
-			float algae_y = aquarium->algae.positions.y[i];
-			float current_dist_sq = (fish_x - algae_x) * (fish_x - algae_x) +
-				(fish_y - algae_y) * (fish_y - algae_y);
+			float curr_dist = algae_in_sight_dist(aquarium, id, i);
+			if (curr_dist == -1.f)
+				continue;
 
-			if (closest_algae_id == -1 || current_dist_sq < closest_algae_dist_sq)
+			if (closest_algae_id == -1 || curr_dist < closest_algae_dist)
 			{
-				closest_algae_dist_sq = current_dist_sq;
+				closest_algae_dist = curr_dist;
 				closest_algae_id = i;
 			}
 		}
@@ -94,6 +116,7 @@ __device__ void fish_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_
 			aquarium->fishes.nextDecisions[id] = FishDecisionEnum::NONE;
 			return;
 		}
+
 
 		// update fishes vector if there is any algea on map
 		float algae_x = aquarium->algae.positions.x[closest_algae_id];
@@ -112,7 +135,7 @@ __device__ void fish_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_
 		}
 
 		// Check if eating is available
-		bool eat_available = closest_algae_dist_sq < 0.01;
+		bool eat_available = closest_algae_dist < 0.01;
 		if (eat_available)
 		{
 			aquarium->fishes.nextDecisions[id] = FishDecisionEnum::EAT;
@@ -177,7 +200,7 @@ void fish_move(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
 		if (aquarium->fishes.alives[id] == FishAliveEnum::DEAD) continue;
 
 		FishDecisionEnum decision = aquarium->fishes.nextDecisions[id];
-		float hunger = aquarium->fishes.hunger[id];
+		float energy = aquarium->fishes.currentEnergy[id];
 		switch (decision)
 		{
 		case FishDecisionEnum::NONE:
@@ -198,22 +221,22 @@ void fish_move(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
 		{
 			// TODO(kutakw): real eating :))
 			//printf("%d: EATING algea nr %llu\n", id, aquarium->fishes.interactionEntityIds[id]);
-			hunger += ALGAE_HUNGER_VALUE;
+			energy += ALGAE_ENERGY_VALUE;
 			break;
 		}
 		}
 
-		hunger += Fish::HUNGER_CHANGE_PER_TICK;
+		energy -= aquarium->fishes.stats.energyUsage[id];
 		//printf("fish[%u].hunger = %f\n", id, hunger);
 
 		// Check if fish alive
-		if (hunger >= Fish::HUNGER_MAX)
+		if (energy <= 0)
 		{
 			printf("fish[%u] is dead\n", id);
 			aquarium->fishes.alives[id] = FishAliveEnum::DEAD;
 		}
 
-		aquarium->fishes.hunger[id] = hunger;
+		aquarium->fishes.currentEnergy[id] = max(energy, aquarium->fishes.stats.maxEnergy[id]);
 	}
 }
 

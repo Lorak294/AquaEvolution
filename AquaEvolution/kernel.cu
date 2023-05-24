@@ -105,9 +105,7 @@ int main()
 	initMemory();
 
 	// initialize scene with radom objects
-	//hostAquarium.radnomGeneration(10, 20, 0, AQUARIUM_WIDTH, 0, AQUARIUM_HEIGHT);
-	hostAquarium.radnomGeneration(10, 400, 0, AQUARIUM_WIDTH, 0, AQUARIUM_HEIGHT);
-	//hostAquarium.radnomGeneration(1, 1, -50, 150, -50, 150);
+	hostAquarium.radnomGeneration(10, 20, 0, AQUARIUM_WIDTH, 0, AQUARIUM_HEIGHT);
 
 	// creating openGL buffers and drawing
 	createBuffers();
@@ -333,7 +331,7 @@ void renderLoop(GLFWwindow* window, Shader shader)
 		processInput(window);
 
 		// TEMPORARY - to see better
-		//std::this_thread::sleep_for(std::chrono::milliseconds(30));
+		// std::this_thread::sleep_for(std::chrono::milliseconds(30));
 
 		// KERNEL HERE
 		if(randomFloat(0.0f, 1.0f) > .9f)
@@ -390,7 +388,7 @@ void renderAquarium(Shader shader)
 	{
 		if (o.is_alive == FishAliveEnum::DEAD) continue;
 
-		shader.setMat4("mvp", getMVP(o.position,o.directionVec,o.size));
+		shader.setMat4("mvp", getMVP(o.position,o.directionVec,o.stats.size));
 
 		// render fish
 		glBindVertexArray(VAO_fish);
@@ -444,8 +442,15 @@ void copyAquariumStructToDevice()
 
 	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.fishes.alives, hostAquariumStruct.fishes.alives, sizeof(FishDecisionEnum)*nFish, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.fishes.nextDecisions, hostAquariumStruct.fishes.nextDecisions, sizeof(FishDecisionEnum)*nFish, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.fishes.sizes, hostAquariumStruct.fishes.sizes, sizeof(float)*nFish, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.fishes.hunger, hostAquariumStruct.fishes.hunger, sizeof(float)*nFish, cudaMemcpyHostToDevice));
+	
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.fishes.stats.energyUsage, hostAquariumStruct.fishes.stats.energyUsage, sizeof(float)*nFish, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.fishes.stats.maxEnergy, hostAquariumStruct.fishes.stats.maxEnergy, sizeof(float)*nFish, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.fishes.stats.sightAngle, hostAquariumStruct.fishes.stats.sightAngle, sizeof(float)*nFish, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.fishes.stats.sightDist, hostAquariumStruct.fishes.stats.sightDist, sizeof(float)*nFish, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.fishes.stats.size, hostAquariumStruct.fishes.stats.size, sizeof(float)*nFish, cudaMemcpyHostToDevice));
+
+	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.fishes.currentEnergy, hostAquariumStruct.fishes.currentEnergy, sizeof(float)*nFish, cudaMemcpyHostToDevice));
+
 	checkCudaErrors(cudaMemcpy(deviceAquariumStruct.fishes.interactionEntityIds, hostAquariumStruct.fishes.interactionEntityIds, sizeof(uint64_t)*nFish, cudaMemcpyHostToDevice));
 
 	int nAlgae = deviceAquariumStruct.algae.count = hostAquariumStruct.algae.count;
@@ -471,8 +476,16 @@ void copyAquariumStructFromDevice()
 
 	checkCudaErrors(cudaMemcpy(hostAquariumStruct.fishes.alives, deviceAquariumStruct.fishes.alives, sizeof(FishAliveEnum)*nFish, cudaMemcpyDeviceToHost));
 	checkCudaErrors(cudaMemcpy(hostAquariumStruct.fishes.nextDecisions, deviceAquariumStruct.fishes.nextDecisions, sizeof(FishDecisionEnum)*nFish, cudaMemcpyDeviceToHost));
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.fishes.sizes, deviceAquariumStruct.fishes.sizes, sizeof(float) * nFish, cudaMemcpyDeviceToHost));
-	checkCudaErrors(cudaMemcpy(hostAquariumStruct.fishes.hunger, deviceAquariumStruct.fishes.hunger, sizeof(float) * nFish, cudaMemcpyDeviceToHost));
+
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.fishes.stats.energyUsage, deviceAquariumStruct.fishes.stats.energyUsage, sizeof(float) * nFish, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.fishes.stats.maxEnergy, deviceAquariumStruct.fishes.stats.maxEnergy, sizeof(float) * nFish, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.fishes.stats.sightAngle, deviceAquariumStruct.fishes.stats.sightAngle, sizeof(float) * nFish, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.fishes.stats.sightDist, deviceAquariumStruct.fishes.stats.sightDist, sizeof(float) * nFish, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.fishes.stats.size, deviceAquariumStruct.fishes.stats.size, sizeof(float) * nFish, cudaMemcpyDeviceToHost));
+
+	checkCudaErrors(cudaMemcpy(hostAquariumStruct.fishes.currentEnergy, deviceAquariumStruct.fishes.currentEnergy, sizeof(float) * nFish, cudaMemcpyDeviceToHost));
+
+
 	checkCudaErrors(cudaMemcpy(hostAquariumStruct.fishes.interactionEntityIds, deviceAquariumStruct.fishes.interactionEntityIds, sizeof(uint64_t) * nFish, cudaMemcpyDeviceToHost));
 
 	int nAlgae = hostAquariumStruct.algae.count = deviceAquariumStruct.algae.count;
@@ -495,8 +508,15 @@ void mallocHostAquariumStruct(int fishesCount, int algaeCount)
 	hostAquariumStruct.fishes.directionVecs.y = (float*)malloc(fishesCount * sizeof(float));
 	hostAquariumStruct.fishes.alives = (FishAliveEnum*)malloc(fishesCount * sizeof(FishAliveEnum));
 	hostAquariumStruct.fishes.nextDecisions = (FishDecisionEnum*)malloc(fishesCount * sizeof(bool));
-	hostAquariumStruct.fishes.sizes = (float*)malloc(fishesCount * sizeof(float));
-	hostAquariumStruct.fishes.hunger = (float*)malloc(fishesCount * sizeof(float));
+
+	hostAquariumStruct.fishes.stats.energyUsage = (float*)malloc(fishesCount * sizeof(float));
+	hostAquariumStruct.fishes.stats.maxEnergy = (float*)malloc(fishesCount * sizeof(float));
+	hostAquariumStruct.fishes.stats.sightAngle = (float*)malloc(fishesCount * sizeof(float));
+	hostAquariumStruct.fishes.stats.sightDist = (float*)malloc(fishesCount * sizeof(float));
+	hostAquariumStruct.fishes.stats.size = (float*)malloc(fishesCount * sizeof(float));
+
+
+	hostAquariumStruct.fishes.currentEnergy = (float*)malloc(fishesCount * sizeof(float));
 	hostAquariumStruct.fishes.interactionEntityIds = (uint64_t*)malloc(fishesCount * sizeof(float));
 
 	hostAquariumStruct.algae.count = algaeCount;
@@ -517,8 +537,15 @@ void mallocDeviceAquariumStruct(int fishesCount, int algaeCount)
 
 	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.fishes.alives, sizeof(FishAliveEnum)*fishesCount));
 	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.fishes.nextDecisions, sizeof(FishDecisionEnum)*fishesCount));
-	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.fishes.sizes, sizeof(float)*fishesCount));
-	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.fishes.hunger, sizeof(float)*fishesCount));
+	
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.fishes.stats.energyUsage, sizeof(float)*fishesCount));
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.fishes.stats.maxEnergy, sizeof(float)*fishesCount));
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.fishes.stats.sightAngle, sizeof(float)*fishesCount));
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.fishes.stats.sightDist, sizeof(float)*fishesCount));
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.fishes.stats.size, sizeof(float)*fishesCount));
+
+
+	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.fishes.currentEnergy, sizeof(float)*fishesCount));
 	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.fishes.interactionEntityIds, sizeof(uint64_t)*fishesCount));
 
 	checkCudaErrors(cudaMalloc((void**)&deviceAquariumStruct.algae.positions.x, sizeof(float)*algaeCount));
@@ -549,8 +576,14 @@ void freeDeviceAquariumStruct()
 
 	checkCudaErrors(cudaFree(deviceAquariumStruct.fishes.alives));
 	checkCudaErrors(cudaFree(deviceAquariumStruct.fishes.nextDecisions));
-	checkCudaErrors(cudaFree(deviceAquariumStruct.fishes.sizes));
-	checkCudaErrors(cudaFree(deviceAquariumStruct.fishes.hunger));
+
+	checkCudaErrors(cudaFree(deviceAquariumStruct.fishes.stats.energyUsage));
+	checkCudaErrors(cudaFree(deviceAquariumStruct.fishes.stats.maxEnergy));
+	checkCudaErrors(cudaFree(deviceAquariumStruct.fishes.stats.sightAngle));
+	checkCudaErrors(cudaFree(deviceAquariumStruct.fishes.stats.sightDist));
+	checkCudaErrors(cudaFree(deviceAquariumStruct.fishes.stats.size));
+
+	checkCudaErrors(cudaFree(deviceAquariumStruct.fishes.currentEnergy));
 	checkCudaErrors(cudaFree(deviceAquariumStruct.fishes.interactionEntityIds));
 
 	checkCudaErrors(cudaFree(deviceAquariumStruct.algae.positions.x));
@@ -572,8 +605,14 @@ void freeHostAquariumStruct()
 
 	free(hostAquariumStruct.fishes.alives);
 	free(hostAquariumStruct.fishes.nextDecisions);
-	free(hostAquariumStruct.fishes.sizes);
-	free(hostAquariumStruct.fishes.hunger);
+
+	free(hostAquariumStruct.fishes.stats.energyUsage);
+	free(hostAquariumStruct.fishes.stats.maxEnergy);
+	free(hostAquariumStruct.fishes.stats.sightAngle);
+	free(hostAquariumStruct.fishes.stats.sightDist);
+	free(hostAquariumStruct.fishes.stats.size);
+
+	free(hostAquariumStruct.fishes.currentEnergy);
 	free(hostAquariumStruct.fishes.interactionEntityIds);
 
 	free(hostAquariumStruct.algae.positions.x);
