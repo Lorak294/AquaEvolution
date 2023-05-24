@@ -6,29 +6,7 @@
 #endif
 #include <device_functions.h>
 
-////////////////////////////// NEUTRAL VALUES ///////////////////////////////
-
-constexpr uint64_t FISH_COUNT_ID			= 0;
-constexpr uint64_t ALGAE_COUNT_ID			= 1;
-constexpr float ALGAE_HUNGER_VALUE			= -40.f;
-constexpr float AQUARIUM_LEFT_BORDER		= 0.f;
-constexpr float AQUARIUM_BOTTOM_BORDER		= 0.f;
-constexpr float AQUARIUM_RIGHT_BORDER		= 100.f;
-constexpr float AQUARIUM_TOP_BORDER			= 100.f;
-
-/////////////////////////////////////////////////////////////////////////////
-
-#ifndef NDEBUG
-constexpr float FISH_VELOCITY				= 0.01f;
-constexpr float ALGAE_VELOCITY				= 0.008f;
-constexpr uint64_t TICKS_PER_GENERATION		= 100;
-#else
-constexpr float FISH_VELOCITY				= 0.005f;
-constexpr float ALGAE_VELOCITY				= 0.0001f;
-constexpr uint64_t TICKS_PER_GENERATION		= 1000;
-#endif
-
-__global__ void simulate_generation(AquariumSoA aquarium)
+__global__ void simulate_generation(AquariumSoA aquarium, curandState* generators)
 {
 	extern __shared__ uint32_t count[]; 
 	count[FISH_COUNT_ID] = aquarium.fishes.count;
@@ -52,6 +30,9 @@ __global__ void simulate_generation(AquariumSoA aquarium)
 		algae_move(&aquarium, start_val, incr_val);
 		__syncthreads();
 	}
+
+	if (start_val != 0) return;
+	fish_reproduction(&aquarium, start_val, incr_val, generators);
 }
 
 __device__ void fish_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
@@ -242,4 +223,61 @@ void algae_move(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
 		float vec_y = aquarium->algae.directionVecs.y[id];
 		pos_y += vec_y * ALGAE_VELOCITY;
 	}
+}
+
+void fish_reproduction(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val, curandState* generators)
+{
+	uint32_t id;
+	extern __shared__ uint32_t count[];
+	int fish_count = count[FISH_COUNT_ID];
+
+	// Get data
+	int new_index = 0;
+	for (int i = 0; i < fish_count; ++i)
+	{
+		if (aquarium->fishes.alives[i] == FishAliveEnum::ALIVE)
+		{
+			aquarium->fishes.alives[new_index] = aquarium->fishes.alives[i];
+			aquarium->fishes.directionVecs.x[new_index] = aquarium->fishes.directionVecs.x[i];
+			aquarium->fishes.directionVecs.y[new_index] = aquarium->fishes.directionVecs.y[i];
+			aquarium->fishes.hunger[new_index] = aquarium->fishes.hunger[i];
+			aquarium->fishes.interactionEntityIds[new_index] = aquarium->fishes.interactionEntityIds[i];
+			aquarium->fishes.nextDecisions[new_index] = aquarium->fishes.nextDecisions[i];
+			aquarium->fishes.positions.x[new_index] = aquarium->fishes.positions.x[i];
+			aquarium->fishes.positions.y[new_index] = aquarium->fishes.positions.y[i];
+			aquarium->fishes.sizes[new_index] = aquarium->fishes.sizes[i];
+
+			new_index++;
+		}
+	}
+
+	int new_fish_count = new_index;
+	for (int i = 0; i < new_fish_count; ++i)
+	{
+		if (new_index == Aquarium::maxObjCount)
+		{
+			aquarium->fishes.count = Aquarium::maxObjCount;
+			return;
+		}
+
+		float hunger = aquarium->fishes.hunger[i];
+		if (hunger > Fish::HUNGER_REPRODUCTION_AVAIL) continue;
+		
+		int children_count = ((int)curand(&generators[start_val])) % 5 + 1;
+		for (int j = 0; j < children_count; ++j)
+		{
+			float offx = curand_uniform(&generators[start_val]) * 10.0f + 5.0f;
+			float offy = curand_uniform(&generators[start_val]) * 10.0f + 5.0f;
+
+			aquarium->fishes.alives[new_index] = FishAliveEnum::ALIVE;
+			aquarium->fishes.positions.x[new_index] = aquarium->fishes.positions.x[i] + offx;
+			aquarium->fishes.positions.y[new_index] = aquarium->fishes.positions.y[i] + offy;
+			aquarium->fishes.sizes[new_index] = aquarium->fishes.sizes[new_index] * 1.1f;
+			aquarium->fishes.hunger[new_index] = Fish::HUNGER_INITIAL;
+			
+			new_index++;
+		}
+	}
+
+	aquarium->fishes.count = new_index;
 }

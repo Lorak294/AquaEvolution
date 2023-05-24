@@ -20,7 +20,7 @@ struct AquariumSoA
 class Aquarium
 {
 public:
-	static constexpr uint64_t maxObjCount = 100000;
+	static constexpr uint64_t maxObjCount = 10000;
 	std::vector<Fish> fishes;
 	std::vector<Fish> fishes_second;
 	std::vector<Algae> algae;

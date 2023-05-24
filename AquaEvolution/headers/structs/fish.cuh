@@ -40,6 +40,7 @@ public:
 	static constexpr float HUNGER_INITIAL			= 50.0f;
 	static constexpr float HUNGER_MAX				= 100.0f;
 	static constexpr float HUNGER_CHANGE_PER_TICK	= 0.02f;
+	static constexpr float HUNGER_REPRODUCTION_AVAIL= 25.0f;
 	/// If hunger >= HUNGER_MAX => fish dies
 
 public:
