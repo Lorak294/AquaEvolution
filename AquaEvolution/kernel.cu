@@ -58,6 +58,7 @@ void mallocHostAquariumStruct(int fishesCount, int algaeCount);
 void mallocDeviceAquariumStruct(int fishesCount, int algaeCount);
 void mallocDeviceSceneStruct();
 void renderAquarium(Shader shader);
+glm::mat4 getMVP(float2 pos, float2 vec, float size);
 
 // openGL parameters
 unsigned int SCR_WIDTH = 1000;
@@ -332,7 +333,7 @@ void renderLoop(GLFWwindow* window, Shader shader)
 		processInput(window);
 
 		// TEMPORARY - to see better
-		std::this_thread::sleep_for(std::chrono::milliseconds(30));
+		//std::this_thread::sleep_for(std::chrono::milliseconds(30));
 
 		// KERNEL HERE
 		if(randomFloat(0.0f, 1.0f) > .9f)
@@ -346,7 +347,7 @@ void renderLoop(GLFWwindow* window, Shader shader)
 			hostAquariumStruct.fishes.count,
 			hostAquariumStruct.algae.count) / n + 1;
 
-		simulate_generation << <nblocks, n >> > (deviceAquariumStruct);
+		simulate_generation << <nblocks, n, 2*sizeof(uint32_t) >> > (deviceAquariumStruct);
 
 		checkCudaErrors(cudaDeviceSynchronize());
 		copyAquariumStructFromDevice();
@@ -389,15 +390,7 @@ void renderAquarium(Shader shader)
 	{
 		if (o.is_alive == FishAliveEnum::DEAD) continue;
 
-		float scaleX = (1.0f / AQUARIUM_WIDTH);
-		float scaleY = (1.0f / AQUARIUM_HEIGHT);
-		//float angle = glm::acos(glm::dot(glm::vec3(0, 1, 0), glm::vec3(o.driftingVec.x, o.driftingVec.y, 0)));
-		glm::mat4 mvpMat = glm::mat4(1.0f);
-		mvpMat = glm::scale(mvpMat, glm::vec3(scaleX, scaleY, 1));
-		mvpMat = glm::translate(mvpMat, glm::vec3(o.position.x - (AQUARIUM_WIDTH / 2), o.position.y - (AQUARIUM_HEIGHT / 2), 0));
-		mvpMat = glm::scale(mvpMat, glm::vec3(o.size, o.size, 1));
-		//mvpMat = glm::rotate(mvpMat, angle, glm::vec3(0.0, 0.0, 1.0));
-		shader.setMat4("mvp", mvpMat);
+		shader.setMat4("mvp", getMVP(o.position,o.directionVec,o.size));
 
 		// render fish
 		glBindVertexArray(VAO_fish);
@@ -408,20 +401,28 @@ void renderAquarium(Shader shader)
 	{
 		if (!o.is_alive) continue;
 
-		float scaleX = (1.0f / AQUARIUM_WIDTH);
-		float scaleY = (1.0f / AQUARIUM_HEIGHT);
-		//float angle = glm::acos(glm::dot(glm::vec3(0, 1, 0), glm::vec3(o.driftingVec.x, o.driftingVec.y, 0)));
-		glm::mat4 mvpMat = glm::mat4(1.0f);
-		mvpMat = glm::scale(mvpMat, glm::vec3(scaleX, scaleY, 1));
-		mvpMat = glm::translate(mvpMat, glm::vec3(o.position.x - (AQUARIUM_WIDTH / 2), o.position.y - (AQUARIUM_HEIGHT / 2), 0));
-		mvpMat = glm::scale(mvpMat, glm::vec3(o.size, o.size, 1));
-		//mvpMat = glm::rotate(mvpMat, angle, glm::vec3(0.0, 0.0, 1.0));
-		shader.setMat4("mvp", mvpMat);
+		shader.setMat4("mvp", getMVP(o.position, o.directionVec, o.size));
 
 		// render alga
 		glBindVertexArray(VAO_alga);
 		glDrawElements(GL_TRIANGLES, 18, GL_UNSIGNED_INT, 0);
 	}
+}
+
+glm::mat4 getMVP(float2 pos, float2 vec, float size)
+{
+	float scaleX = (1.0f / AQUARIUM_WIDTH);
+	float scaleY = (1.0f / AQUARIUM_HEIGHT);
+	glm::vec3 dirVec = glm::normalize(glm::vec3(vec.x, vec.y, 0));
+	float angle = glm::acos(glm::dot(dirVec, glm::vec3(0, 1, 0)));
+	if (vec.x > 0)
+		angle *= -1.0f;
+	glm::mat4 mvpMat = glm::mat4(1.0f);
+	mvpMat = glm::scale(mvpMat, glm::vec3(scaleX, scaleY, 1));
+	mvpMat = mvpMat = glm::translate(mvpMat, glm::vec3(pos.x - AQUARIUM_WIDTH / 2, pos.y - AQUARIUM_HEIGHT / 2, 0));
+	mvpMat = glm::rotate(mvpMat, angle, glm::vec3(0.0, 0.0, 1.0));
+	mvpMat = glm::scale(mvpMat, glm::vec3(size, size, 1));
+	return mvpMat;
 }
 
 // --------------------------------------------- MEMORY MANAGEMENT FUNCTIONS ----------------------------------------------

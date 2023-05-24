@@ -1,6 +1,11 @@
 #include "headers/simulation_kernels.cuh"
 #include <cuda_runtime_api.h>
 
+#ifndef __CUDACC__  
+#define __CUDACC__
+#endif
+#include <device_functions.h>
+
 ////////////////////////////// NEUTRAL VALUES ///////////////////////////////
 
 constexpr uint64_t FISH_COUNT_ID			= 0;
