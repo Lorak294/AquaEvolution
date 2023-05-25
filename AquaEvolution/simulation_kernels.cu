@@ -9,12 +9,12 @@
 __global__ void simulate_generation(AquariumSoA aquarium, curandState* generators)
 {
 	extern __shared__ uint32_t count[]; 
-	count[FISH_COUNT_ID] = aquarium.fishes.count;
-	count[ALGAE_COUNT_ID] = aquarium.algae.count;
+	count[FISH_COUNT_ID] = *aquarium.fishes.count;
+	count[ALGAE_COUNT_ID] = *aquarium.algae.count;
 	__syncthreads();
 
 	const uint32_t start_val = blockIdx.x * blockDim.x + threadIdx.x;
-	const uint32_t incr_val = blockDim.x;
+	const uint32_t incr_val = blockDim.x * gridDim.x;
 	
 	for (int j = 0; j < TICKS_PER_GENERATION; ++j)
 	{
@@ -254,30 +254,34 @@ void fish_reproduction(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_
 	int new_fish_count = new_index;
 	for (int i = 0; i < new_fish_count; ++i)
 	{
-		if (new_index == Aquarium::maxObjCount)
+		if (new_index + 5 >= Aquarium::maxObjCount)
 		{
-			aquarium->fishes.count = Aquarium::maxObjCount;
+			*aquarium->fishes.count = new_index;
 			return;
 		}
 
 		float hunger = aquarium->fishes.hunger[i];
 		if (hunger > Fish::HUNGER_REPRODUCTION_AVAIL) continue;
+		hunger += 25.0f;
 		
-		int children_count = ((int)curand(&generators[start_val])) % 5 + 1;
+		int children_count = (((int)curand(&generators[start_val]) & 0b01111111111111111111111111111111) % 5) + 1;
 		for (int j = 0; j < children_count; ++j)
 		{
-			float offx = curand_uniform(&generators[start_val]) * 10.0f + 5.0f;
-			float offy = curand_uniform(&generators[start_val]) * 10.0f + 5.0f;
+			float offx = curand_uniform(&generators[start_val]) + 0.5f;
+			float offy = curand_uniform(&generators[start_val]) + 0.5f;
 
 			aquarium->fishes.alives[new_index] = FishAliveEnum::ALIVE;
 			aquarium->fishes.positions.x[new_index] = aquarium->fishes.positions.x[i] + offx;
 			aquarium->fishes.positions.y[new_index] = aquarium->fishes.positions.y[i] + offy;
-			aquarium->fishes.sizes[new_index] = aquarium->fishes.sizes[new_index] * 1.1f;
+			aquarium->fishes.directionVecs.x[new_index] = 1.0f;
+			aquarium->fishes.directionVecs.y[new_index] = 0.0f;
+			aquarium->fishes.sizes[new_index] = aquarium->fishes.sizes[i] * 1.01f;
 			aquarium->fishes.hunger[new_index] = Fish::HUNGER_INITIAL;
 			
 			new_index++;
 		}
+		aquarium->fishes.hunger[i] = hunger;
 	}
 
-	aquarium->fishes.count = new_index;
+	*aquarium->fishes.count = new_index;
 }

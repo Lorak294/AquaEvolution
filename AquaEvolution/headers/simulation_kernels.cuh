@@ -10,7 +10,7 @@
 
 constexpr uint64_t FISH_COUNT_ID			= 0;
 constexpr uint64_t ALGAE_COUNT_ID			= 1;
-constexpr float ALGAE_HUNGER_VALUE			= -40.f;
+constexpr float ALGAE_HUNGER_VALUE			= -5.f;
 constexpr float AQUARIUM_LEFT_BORDER		= 0.f;
 constexpr float AQUARIUM_BOTTOM_BORDER		= 0.f;
 constexpr float AQUARIUM_RIGHT_BORDER		= 100.f;
@@ -26,7 +26,7 @@ constexpr uint64_t TICKS_PER_GENERATION		= 100;
 #else
 constexpr float FISH_VELOCITY				= 0.005f;
 constexpr float ALGAE_VELOCITY				= 0.0001f;
-constexpr uint64_t TICKS_PER_GENERATION		= 100;
+constexpr uint64_t TICKS_PER_GENERATION		= 1000;
 #endif
 
 /// <summary>

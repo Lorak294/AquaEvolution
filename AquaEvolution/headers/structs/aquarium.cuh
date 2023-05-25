@@ -39,7 +39,7 @@ public:
 	void readFromDeviceStruct(const AquariumSoA& deviceStruct, bool includeDead)
 	{
 		fishes.clear();
-		for (int i = 0; i < deviceStruct.fishes.count; i++)
+		for (int i = 0; i < *deviceStruct.fishes.count; i++)
 		{
 			if (includeDead || deviceStruct.fishes.alives[i] == FishAliveEnum::ALIVE)
 			{
@@ -48,7 +48,7 @@ public:
 		}
 
 		algae.clear();
-		for (int i = 0; i < deviceStruct.algae.count; i++)
+		for (int i = 0; i < *deviceStruct.algae.count; i++)
 		{
 			if (includeDead || deviceStruct.algae.alives[i])
 			{
@@ -62,7 +62,7 @@ public:
 		// NOTE: assuming deviceStruct has already been reallocated to new size
 		int copySize = fishes.size() > maxObjCount ? maxObjCount : fishes.size();
 
-		deviceStruct.fishes.count = copySize;
+		*deviceStruct.fishes.count = copySize;
 		for (int i = 0; i < copySize; i++)
 		{
 			fishes[i].writeToDeviceStruct(deviceStruct.fishes, i);
@@ -71,7 +71,7 @@ public:
 		// NOTE: assuming deviceStruct has already been reallocated to new size
 		copySize = algae.size() > maxObjCount ? maxObjCount : algae.size();
 
-		deviceStruct.algae.count = copySize;
+		*deviceStruct.algae.count = copySize;
 		for (int i = 0; i < copySize; i++)
 		{
 			algae[i].writeToDeviceStruct(deviceStruct.algae, i);

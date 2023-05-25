@@ -5,7 +5,7 @@
 
 struct AlgaeSoA
 {
-	uint64_t count;
+	uint64_t* count;
 
 	s_float2 positions;
 	s_float2 directionVecs;

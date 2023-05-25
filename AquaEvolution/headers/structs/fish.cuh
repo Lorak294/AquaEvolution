@@ -17,7 +17,7 @@ enum class FishAliveEnum : int32_t
 
 struct FishSoA
 {
-	uint64_t count;
+	uint64_t* count;
 
 	s_float2 positions;
 	s_float2 directionVecs;
@@ -34,13 +34,13 @@ class Fish
 public:
 	// CONST VALUES
 
-	static constexpr float initaialSize				= 0.1f;
+	static constexpr float initaialSize				= 0.25f;
 
 	static constexpr float HUNGER_MIN				= 0.0f;
 	static constexpr float HUNGER_INITIAL			= 50.0f;
 	static constexpr float HUNGER_MAX				= 100.0f;
 	static constexpr float HUNGER_CHANGE_PER_TICK	= 0.02f;
-	static constexpr float HUNGER_REPRODUCTION_AVAIL= 25.0f;
+	static constexpr float HUNGER_REPRODUCTION_AVAIL= 10.0f;
 	/// If hunger >= HUNGER_MAX => fish dies
 
 public:
