@@ -35,6 +35,29 @@ __global__ void simulate_generation(AquariumSoA aquarium, curandState* generator
 	fish_reproduction(&aquarium, start_val, incr_val, generators);
 }
 
+// returns algae distance or -1 if fish cannot see the algae
+__device__ float algae_in_sight_dist(AquariumSoA* aquarium, uint32_t fishId, size_t algaId)
+{
+	float2 algaPos = { aquarium->algae.positions.x[algaId], aquarium->algae.positions.y[algaId] };
+	float2 fishPos = { aquarium->fishes.positions.x[fishId], aquarium->fishes.positions.y[fishId] };
+	float2 fishVec = { aquarium->fishes.directionVecs.x[fishId], aquarium->fishes.directionVecs.y[fishId] };
+
+	float2 vecToAlga = algaPos - fishPos;
+
+	float dist = length(vecToAlga);
+
+	//check distance
+	if (dist > aquarium->fishes.stats.sightDist[fishId])
+		return -1.f;
+
+	// check angle
+	float cosine = dot(fishVec, vecToAlga/dist);
+	if (cosine < aquarium->fishes.stats.sightAngle[fishId])
+		return -1.f;
+
+	return dist;
+}
+
 __device__ void fish_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
 {
 	uint32_t id;
@@ -52,20 +75,19 @@ __device__ void fish_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_
 
 		// Loop through all algea and find closest one
 		int closest_algae_id = -1;
-		float closest_algae_dist_sq = FLT_MAX;
+		float closest_algae_dist = FLT_MAX;
 
 		for (size_t i = 0; i < count[ALGAE_COUNT_ID]; ++i)
 		{
 			if (!aquarium->algae.alives[i]) continue;
 
-			float algae_x = aquarium->algae.positions.x[i];
-			float algae_y = aquarium->algae.positions.y[i];
-			float current_dist_sq = (fish_x - algae_x) * (fish_x - algae_x) +
-				(fish_y - algae_y) * (fish_y - algae_y);
+			float curr_dist = algae_in_sight_dist(aquarium, id, i);
+			if (curr_dist == -1.f)
+				continue;
 
-			if (closest_algae_id == -1 || current_dist_sq < closest_algae_dist_sq)
+			if (closest_algae_id == -1 || curr_dist < closest_algae_dist)
 			{
-				closest_algae_dist_sq = current_dist_sq;
+				closest_algae_dist = curr_dist;
 				closest_algae_id = i;
 			}
 		}
@@ -75,6 +97,7 @@ __device__ void fish_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_
 			aquarium->fishes.nextDecisions[id] = FishDecisionEnum::NONE;
 			return;
 		}
+
 
 		// update fishes vector if there is any algea on map
 		float algae_x = aquarium->algae.positions.x[closest_algae_id];
@@ -93,7 +116,7 @@ __device__ void fish_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_
 		}
 
 		// Check if eating is available
-		bool eat_available = closest_algae_dist_sq < 0.01;
+		bool eat_available = closest_algae_dist < 0.01;
 		if (eat_available)
 		{
 			aquarium->fishes.nextDecisions[id] = FishDecisionEnum::EAT;
@@ -158,7 +181,7 @@ void fish_move(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
 		if (aquarium->fishes.alives[id] == FishAliveEnum::DEAD) continue;
 
 		FishDecisionEnum decision = aquarium->fishes.nextDecisions[id];
-		float hunger = aquarium->fishes.hunger[id];
+		float energy = aquarium->fishes.currentEnergy[id];
 		switch (decision)
 		{
 		case FishDecisionEnum::NONE:
@@ -179,32 +202,27 @@ void fish_move(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
 		{
 			// TODO(kutakw): real eating :))
 			//printf("%d: EATING algea nr %llu\n", id, aquarium->fishes.interactionEntityIds[id]);
-			hunger += ALGAE_HUNGER_VALUE;
+			energy += ALGAE_ENERGY_VALUE;
 			break;
 		}
 		}
 
-		hunger += Fish::HUNGER_CHANGE_PER_TICK;
-		//printf("fish[%u].hunger = %f\n", id, hunger);
+		energy -= aquarium->fishes.stats.energyUsage[id];
+		//printf("fish[%u].energy = %f\n", id, energy);
 
 		// Check if fish alive
-		if (hunger >= Fish::HUNGER_MAX)
+		if (energy <= 0)
 		{
 			printf("fish[%u] is dead\n", id);
 			aquarium->fishes.alives[id] = FishAliveEnum::DEAD;
 		}
 
-		aquarium->fishes.hunger[id] = hunger;
+		aquarium->fishes.currentEnergy[id] = min(energy, aquarium->fishes.stats.maxEnergy[id]);
 	}
 }
 
 void algae_move(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
 {
-	// TODO(kutakw): generate random numbers
-	// https://docs.nvidia.com/cuda/curand/host-api-overview.html#generator-types
-	// https://docs.nvidia.com/cuda/curand/group__DEVICE.html#group__DEVICE_1gf1ba3a7a4a53b2bee1d7c1c7b837c00d
-	// curand_uniform for sobol32
-
 	uint32_t id;
 	extern __shared__ uint32_t count[];
 
@@ -230,6 +248,7 @@ void fish_reproduction(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_
 	uint32_t id;
 	extern __shared__ uint32_t count[];
 	int fish_count = count[FISH_COUNT_ID];
+	curandState generator = generators[start_val];
 
 	// Get data
 	int new_index = 0;
@@ -240,12 +259,12 @@ void fish_reproduction(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_
 			aquarium->fishes.alives[new_index] = aquarium->fishes.alives[i];
 			aquarium->fishes.directionVecs.x[new_index] = aquarium->fishes.directionVecs.x[i];
 			aquarium->fishes.directionVecs.y[new_index] = aquarium->fishes.directionVecs.y[i];
-			aquarium->fishes.hunger[new_index] = aquarium->fishes.hunger[i];
+			aquarium->fishes.currentEnergy[new_index] = aquarium->fishes.currentEnergy[i];
 			aquarium->fishes.interactionEntityIds[new_index] = aquarium->fishes.interactionEntityIds[i];
 			aquarium->fishes.nextDecisions[new_index] = aquarium->fishes.nextDecisions[i];
 			aquarium->fishes.positions.x[new_index] = aquarium->fishes.positions.x[i];
 			aquarium->fishes.positions.y[new_index] = aquarium->fishes.positions.y[i];
-			aquarium->fishes.sizes[new_index] = aquarium->fishes.sizes[i];
+			aquarium->fishes.stats.size[new_index] = aquarium->fishes.stats.size[i];
 
 			new_index++;
 		}
@@ -260,28 +279,29 @@ void fish_reproduction(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_
 			return;
 		}
 
-		float hunger = aquarium->fishes.hunger[i];
-		if (hunger > Fish::HUNGER_REPRODUCTION_AVAIL) continue;
-		hunger += 25.0f;
+		float energy = aquarium->fishes.currentEnergy[i];
+		if (energy < 30.0f) continue;
+		energy -= 5.0f;
 		
-		int children_count = (((int)curand(&generators[start_val]) & 0b01111111111111111111111111111111) % 5) + 1;
+		int children_count = (((int)curand(&generator) & INT_MAX) % 10) + 1;
 		for (int j = 0; j < children_count; ++j)
 		{
-			float offx = curand_uniform(&generators[start_val]) + 0.5f;
-			float offy = curand_uniform(&generators[start_val]) + 0.5f;
+			float offx = curand_uniform(&generator) + 1.5f;
+			float offy = curand_uniform(&generator) + 1.5f;
 
 			aquarium->fishes.alives[new_index] = FishAliveEnum::ALIVE;
 			aquarium->fishes.positions.x[new_index] = aquarium->fishes.positions.x[i] + offx;
 			aquarium->fishes.positions.y[new_index] = aquarium->fishes.positions.y[i] + offy;
 			aquarium->fishes.directionVecs.x[new_index] = 1.0f;
 			aquarium->fishes.directionVecs.y[new_index] = 0.0f;
-			aquarium->fishes.sizes[new_index] = aquarium->fishes.sizes[i] * 1.01f;
-			aquarium->fishes.hunger[new_index] = Fish::HUNGER_INITIAL;
+			aquarium->fishes.stats.size[new_index] = aquarium->fishes.stats.size[i] * 1.1f;
+			aquarium->fishes.currentEnergy[new_index] = Fish::ENERGY_INITIAL;
 			
 			new_index++;
 		}
-		aquarium->fishes.hunger[i] = hunger;
+		aquarium->fishes.currentEnergy[i] = energy;
 	}
 
 	*aquarium->fishes.count = new_index;
+	generators[start_val] = generator;
 }

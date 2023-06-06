@@ -15,6 +15,15 @@ enum class FishAliveEnum : int32_t
 	ALIVE, DEAD
 };
 
+struct StatsSoA
+{
+	float* size;
+	float* sightDist;
+	float* sightAngle; // -1 to 1
+	float* maxEnergy;
+	float* energyUsage;
+};
+
 struct FishSoA
 {
 	uint64_t* count;
@@ -22,11 +31,26 @@ struct FishSoA
 	s_float2 positions;
 	s_float2 directionVecs;
 	FishAliveEnum* alives;
-	float* sizes;
-	float* hunger;
+	float* currentEnergy;
 	FishDecisionEnum* nextDecisions;
 	uint64_t* interactionEntityIds;
-	// ... other traits
+
+	StatsSoA stats;
+};
+
+struct Stats
+{
+	float size;
+	float sightDist;
+	float sightAngle; // -1 to 1
+	float maxEnergy;
+	float energyUsage;
+
+	// initial values constructor
+	Stats() : size(0.5f), sightDist(10.f), sightAngle(0.f), maxEnergy(50.f), energyUsage(0.01f)
+	{
+
+	}
 };
 
 class Fish
@@ -34,13 +58,12 @@ class Fish
 public:
 	// CONST VALUES
 
-	static constexpr float initaialSize				= 0.25f;
+	static constexpr float initaialSize				= 0.5f;
 
-	static constexpr float HUNGER_MIN				= 0.0f;
-	static constexpr float HUNGER_INITIAL			= 50.0f;
-	static constexpr float HUNGER_MAX				= 100.0f;
-	static constexpr float HUNGER_CHANGE_PER_TICK	= 0.02f;
-	static constexpr float HUNGER_REPRODUCTION_AVAIL= 10.0f;
+	static constexpr float ENERGY_MIN				= 0.0f;
+	static constexpr float ENERGY_INITIAL			= 25.0f;
+	static constexpr float ENERGY_MAX				= 100.0f;
+	static constexpr float ENERGY_CHANGE_PER_TICK	= 0.02f;
 	/// If hunger >= HUNGER_MAX => fish dies
 
 public:
@@ -48,21 +71,22 @@ public:
 	float2 position;
 	float2 directionVec;
 	uint64_t interactionEntityId = -1;
-	float size;
-	float hunger;
 	FishDecisionEnum nextDecision;
 	FishAliveEnum is_alive;
+	float currentEnergy;
 
-	Fish(float2 p, float2 dv, 
-		float s, 
+	Stats stats;
+
+	Fish(float2 p, float2 dv,
+		Stats st,
 		FishAliveEnum alive = FishAliveEnum::ALIVE, 
 		FishDecisionEnum decision = FishDecisionEnum::NONE,
-		float hunger = HUNGER_INITIAL
+		float energy = ENERGY_INITIAL
 	) : 
 		position(p), directionVec(dv), 
-		size(s), is_alive(alive), 
+		stats(st), is_alive(alive), 
 		nextDecision(decision),
-		hunger(hunger)
+		currentEnergy(energy)
 	{}
 
 	// MEMBER FUNCTIONS
@@ -72,16 +96,28 @@ public:
 	{
 		deviceStruct.positions.x[idx] = position.x;
 		deviceStruct.positions.y[idx] = position.y;
-		deviceStruct.sizes[idx] = size;
-		deviceStruct.hunger[idx] = hunger;
+		deviceStruct.currentEnergy[idx] = currentEnergy;
 		deviceStruct.directionVecs.x[idx] = directionVec.x;
 		deviceStruct.directionVecs.y[idx] = directionVec.y;
 		deviceStruct.nextDecisions[idx] = nextDecision;
 		deviceStruct.alives[idx] = is_alive;
+
+		deviceStruct.stats.size[idx] = stats.size;
+		deviceStruct.stats.maxEnergy[idx] = stats.maxEnergy;
+		deviceStruct.stats.energyUsage[idx] = stats.energyUsage;
+		deviceStruct.stats.sightDist[idx] = stats.sightDist;
+		deviceStruct.stats.sightAngle[idx] = stats.sightAngle;
 	}
 
 	static Fish readFromDeviceStruct(const FishSoA& deviceStruct, int idx)
 	{
+		Stats stats;
+		stats.energyUsage = deviceStruct.stats.energyUsage[idx];
+		stats.maxEnergy = deviceStruct.stats.maxEnergy[idx];
+		stats.sightAngle = deviceStruct.stats.sightAngle[idx];
+		stats.sightDist = deviceStruct.stats.sightDist[idx];
+		stats.size = deviceStruct.stats.size[idx];
+
 		return Fish
 		(
 			{ 
@@ -92,10 +128,10 @@ public:
 				deviceStruct.directionVecs.x[idx], 
 				deviceStruct.directionVecs.y[idx] 
 			},
-			deviceStruct.sizes[idx],
+			stats,
 			deviceStruct.alives[idx],
 			deviceStruct.nextDecisions[idx],
-			deviceStruct.hunger[idx]
+			deviceStruct.currentEnergy[idx]
 		);
 	}
 private:

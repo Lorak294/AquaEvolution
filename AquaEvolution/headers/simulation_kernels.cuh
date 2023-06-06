@@ -10,9 +10,9 @@
 
 constexpr uint64_t FISH_COUNT_ID			= 0;
 constexpr uint64_t ALGAE_COUNT_ID			= 1;
-constexpr float ALGAE_HUNGER_VALUE			= -5.f;
-constexpr float AQUARIUM_LEFT_BORDER		= 0.f;
-constexpr float AQUARIUM_BOTTOM_BORDER		= 0.f;
+constexpr float ALGAE_ENERGY_VALUE			= 20.0f;
+constexpr float AQUARIUM_LEFT_BORDER		= 0.0f;
+constexpr float AQUARIUM_BOTTOM_BORDER		= 0.0f;
 constexpr float AQUARIUM_RIGHT_BORDER		= 100.f;
 constexpr float AQUARIUM_TOP_BORDER			= 100.f;
 constexpr uint64_t GENERATORS_COUNT = 2048;
