@@ -120,11 +120,11 @@ int main(int argc, char* argv[])
 	initMemory();
 
 #ifndef NDEBUG
-	int fishCount = 0;
-	int algaeCount = 1;
+	int fishCount = 1;
+	int algaeCount = 100;
 #else
-	int fishCount = 0;
-	int algaeCount = 1;
+	int fishCount = 100;
+	int algaeCount = 100;
 #endif
 
 	// initialize scene with radom objects
@@ -397,7 +397,7 @@ void renderLoop(GLFWwindow* window, Shader shader)
 		glClear(GL_COLOR_BUFFER_BIT);
 		start = std::chrono::high_resolution_clock::now();
 		renderAquarium(shader);
-		std::cout << hostAquarium.algae.size() << std::endl;
+		//std::cout << hostAquarium.algae.size() << std::endl;
 		//std::cout << "renderAquarium: " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
 
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)

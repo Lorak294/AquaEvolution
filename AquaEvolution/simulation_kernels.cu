@@ -212,6 +212,7 @@ void fish_move(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
 		// Check if fish alive
 		if (energy <= 0)
 		{
+			printf("fish[%u] is dead\n", id);
 			aquarium->fishes.alives[id] = FishAliveEnum::DEAD;
 		}
 
@@ -242,7 +243,7 @@ void algae_move(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
 		float energy = aquarium->algae.currentEnergy[id];
 		float algae_height = pos_y / AQUARIUM_TOP_BORDER;
 		float energyLoss = aquarium->algae.stats.energyUsage[id];
-		float energyGain = lerp(0.00075f, 0.00125f, algae_height);
+		float energyGain = lerp(0.000075f, 0.00125f, algae_height);
 		energy -= energyLoss;
 		energy += energyGain;
 		if(energy < 0.0f) 
@@ -361,7 +362,7 @@ void algae_reproduction(
 		if (new_index + 10 >= Aquarium::maxObjCount) break;
 
 		float energy = aquarium->algae.currentEnergy[i];
-		if (energy < 30.0f) continue;
+		if (energy < 28.0f) continue;
 		energy -= 5.0f;
 		
 		int children_count = (((int)curand(&generator) & INT_MAX) % 10) + 1;
