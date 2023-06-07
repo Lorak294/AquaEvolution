@@ -125,19 +125,20 @@ public:
 	// generates new generation based of given number of objects with random values
 	void radnomGeneration(int fishCount, int algaeCount, int Xbeg, int Xend, int Ybeg, int Yend)
 	{
-		struct Stats iniitalStats = Stats();
+		struct FishStats fishInitialStats = FishStats();
+		struct AlgaeStats algaeInitialStats = AlgaeStats();
 		fishes.clear();
 		for (int i = 0; i < fishCount; i++)
 		{
 			float2 pos = { randomFloat(Xbeg,Xend), randomFloat(Ybeg,Yend) };
-			fishes.push_back(Fish(pos, randomVector(), iniitalStats));
+			fishes.push_back(Fish(pos, randomVector(), fishInitialStats));
 		}
 
 		algae.clear();
 		for (int i = 0; i < algaeCount; i++)
 		{
 			float2 pos = { randomFloat(Xbeg,Xend), randomFloat(Ybeg,Yend) };
-			algae.push_back(Algae(pos, randomVector(), Algae::initaialSize));
+			algae.push_back(Algae(pos, randomVector(), algaeInitialStats, Algae::initaialSize));
 		}
 	}
 };
@@ -156,7 +157,7 @@ std::vector<T> createChildren(const T& parent)
 			parent.position.y + offsety,
 		}, 
 		randomVector(), 
-		Stats()
+		FishStats()
 		));
 	return children;
 }

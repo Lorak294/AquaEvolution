@@ -15,7 +15,7 @@ enum class FishAliveEnum : int32_t
 	ALIVE, DEAD
 };
 
-struct StatsSoA
+struct FishStatsSoA
 {
 	float* size;
 	float* sightDist;
@@ -35,10 +35,10 @@ struct FishSoA
 	FishDecisionEnum* nextDecisions;
 	uint64_t* interactionEntityIds;
 
-	StatsSoA stats;
+	FishStatsSoA stats;
 };
 
-struct Stats
+struct FishStats
 {
 	float size;
 	float sightDist;
@@ -47,7 +47,7 @@ struct Stats
 	float energyUsage;
 
 	// initial values constructor
-	Stats() : size(0.5f), sightDist(10.f), sightAngle(0.f), maxEnergy(50.f), energyUsage(0.01f)
+	FishStats() : size(0.5f), sightDist(10.f), sightAngle(0.f), maxEnergy(50.f), energyUsage(0.01f)
 	{
 
 	}
@@ -57,14 +57,11 @@ class Fish
 {
 public:
 	// CONST VALUES
-
 	static constexpr float initaialSize				= 0.5f;
-
 	static constexpr float ENERGY_MIN				= 0.0f;
 	static constexpr float ENERGY_INITIAL			= 25.0f;
 	static constexpr float ENERGY_MAX				= 100.0f;
 	static constexpr float ENERGY_CHANGE_PER_TICK	= 0.02f;
-	/// If hunger >= HUNGER_MAX => fish dies
 
 public:
 	// FIELDS
@@ -75,10 +72,10 @@ public:
 	FishAliveEnum is_alive;
 	float currentEnergy;
 
-	Stats stats;
+	FishStats stats;
 
 	Fish(float2 p, float2 dv,
-		Stats st,
+		FishStats st,
 		FishAliveEnum alive = FishAliveEnum::ALIVE, 
 		FishDecisionEnum decision = FishDecisionEnum::NONE,
 		float energy = ENERGY_INITIAL
@@ -111,7 +108,7 @@ public:
 
 	static Fish readFromDeviceStruct(const FishSoA& deviceStruct, int idx)
 	{
-		Stats stats;
+		FishStats stats;
 		stats.energyUsage = deviceStruct.stats.energyUsage[idx];
 		stats.maxEnergy = deviceStruct.stats.maxEnergy[idx];
 		stats.sightAngle = deviceStruct.stats.sightAngle[idx];

@@ -1,4 +1,5 @@
 #include "headers/simulation_kernels.cuh"
+#include "headers/helper_math.cuh"
 #include <cuda_runtime_api.h>
 
 #ifndef __CUDACC__  
@@ -33,6 +34,7 @@ __global__ void simulate_generation(AquariumSoA aquarium, curandState* generator
 
 	if (start_val != 0) return;
 	fish_reproduction(&aquarium, start_val, incr_val, generators);
+	algae_reproduction(&aquarium, start_val, incr_val, generators);
 }
 
 // returns algae distance or -1 if fish cannot see the algae
@@ -200,20 +202,16 @@ void fish_move(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
 		}
 		case FishDecisionEnum::EAT:
 		{
-			// TODO(kutakw): real eating :))
-			//printf("%d: EATING algea nr %llu\n", id, aquarium->fishes.interactionEntityIds[id]);
 			energy += ALGAE_ENERGY_VALUE;
 			break;
 		}
 		}
 
 		energy -= aquarium->fishes.stats.energyUsage[id];
-		//printf("fish[%u].energy = %f\n", id, energy);
 
 		// Check if fish alive
 		if (energy <= 0)
 		{
-			printf("fish[%u] is dead\n", id);
 			aquarium->fishes.alives[id] = FishAliveEnum::DEAD;
 		}
 
@@ -240,6 +238,23 @@ void algae_move(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
 		float& pos_y = aquarium->algae.positions.y[id];
 		float vec_y = aquarium->algae.directionVecs.y[id];
 		pos_y += vec_y * ALGAE_VELOCITY;
+
+		float energy = aquarium->algae.currentEnergy[id];
+		float algae_height = pos_y / AQUARIUM_TOP_BORDER;
+		float energyLoss = aquarium->algae.stats.energyUsage[id];
+		float energyGain = lerp(0.00075f, 0.00125f, algae_height);
+		energy -= energyLoss;
+		energy += energyGain;
+		if(energy < 0.0f) 
+		{
+			aquarium->algae.alives[id] = false;
+			printf("algae[%u] is dead\n", id);
+			continue;
+		}
+
+		energy = fminf(energy, 50.0f);
+
+		aquarium->algae.currentEnergy[id] = energy;
 	}
 }
 
@@ -273,15 +288,15 @@ void fish_reproduction(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_
 	int new_fish_count = new_index;
 	for (int i = 0; i < new_fish_count; ++i)
 	{
-		if (new_index + 5 >= Aquarium::maxObjCount)
+		if (new_index + 10 >= Aquarium::maxObjCount)
 		{
 			*aquarium->fishes.count = new_index;
 			return;
 		}
 
 		float energy = aquarium->fishes.currentEnergy[i];
-		if (energy < 30.0f) continue;
-		energy -= 5.0f;
+		if (energy < 35.0f) continue;
+		energy -= 10.0f;
 		
 		int children_count = (((int)curand(&generator) & INT_MAX) % 10) + 1;
 		for (int j = 0; j < children_count; ++j)
@@ -303,5 +318,80 @@ void fish_reproduction(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_
 	}
 
 	*aquarium->fishes.count = new_index;
+	generators[start_val] = generator;
+}
+
+
+void algae_reproduction(
+	AquariumSoA* aquarium,
+	uint32_t start_val,
+	uint32_t incr_val,
+	curandState* generators
+)
+{
+	uint32_t id;
+	extern __shared__ uint32_t count[];
+	int algae_count = count[ALGAE_COUNT_ID];
+	curandState generator = generators[start_val];
+
+	// Get data
+	int new_index = 0;
+	for (int i = 0; i < algae_count; ++i)
+	{
+		if (aquarium->algae.alives[i])
+		{
+			aquarium->algae.positions.x[new_index] = aquarium->algae.positions.x[i];
+			aquarium->algae.positions.y[new_index] = aquarium->algae.positions.y[i];
+			aquarium->algae.directionVecs.x[new_index] = aquarium->algae.directionVecs.x[i];
+			aquarium->algae.directionVecs.y[new_index] = aquarium->algae.directionVecs.y[i];
+			aquarium->algae.alives[new_index] = aquarium->algae.alives[i];
+			aquarium->algae.currentEnergy[new_index] = aquarium->algae.currentEnergy[i];
+
+			aquarium->algae.stats.size[new_index] = aquarium->algae.stats.size[i];
+			aquarium->algae.stats.maxEnergy[new_index] = aquarium->algae.stats.maxEnergy[i];
+			aquarium->algae.stats.energyUsage[new_index] = aquarium->algae.stats.energyUsage[i];
+
+			new_index++;
+		}
+	}
+
+	int new_algae_count = new_index;
+	for (int i = 0; i < new_algae_count; ++i)
+	{
+		if (new_index + 10 >= Aquarium::maxObjCount) break;
+
+		float energy = aquarium->algae.currentEnergy[i];
+		if (energy < 30.0f) continue;
+		energy -= 5.0f;
+		
+		int children_count = (((int)curand(&generator) & INT_MAX) % 10) + 1;
+		for (int j = 0; j < children_count; ++j)
+		{
+			float offx = 5.0f * curand_uniform(&generator) - 2.5f;
+			float offy = 5.0f * curand_uniform(&generator) - 2.5f;
+			float2 vec = { curand_uniform(&generator), curand_uniform(&generator) };
+			vec = normalize(vec);
+			float2 pos = { 
+				clamp(aquarium->algae.positions.x[i] + offx, AQUARIUM_LEFT_BORDER + 0.1f, AQUARIUM_RIGHT_BORDER - 0.1f), 
+				clamp(aquarium->algae.positions.y[i] + offy, AQUARIUM_BOTTOM_BORDER + 0.1f, AQUARIUM_TOP_BORDER - 0.1f), 
+			};
+
+			aquarium->algae.alives[new_index] = true;
+			aquarium->algae.positions.x[new_index] = pos.x;
+			aquarium->algae.positions.y[new_index] = pos.y;
+			aquarium->algae.directionVecs.x[new_index] = aquarium->algae.directionVecs.x[i];
+			aquarium->algae.directionVecs.y[new_index] = aquarium->algae.directionVecs.y[i];
+			aquarium->algae.currentEnergy[new_index] = Algae::initialEnergy;
+
+			aquarium->algae.stats.size[new_index] = aquarium->algae.stats.size[i];
+			aquarium->algae.stats.maxEnergy[new_index] = aquarium->algae.stats.maxEnergy[i];
+			aquarium->algae.stats.energyUsage[new_index] = aquarium->algae.stats.energyUsage[i];
+			
+			new_index++;
+		}
+		aquarium->algae.currentEnergy[i] = energy;
+	}
+
+	*aquarium->algae.count = new_index;
 	generators[start_val] = generator;
 }

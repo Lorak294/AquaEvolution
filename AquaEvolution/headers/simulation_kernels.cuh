@@ -15,7 +15,7 @@ constexpr float AQUARIUM_LEFT_BORDER		= 0.0f;
 constexpr float AQUARIUM_BOTTOM_BORDER		= 0.0f;
 constexpr float AQUARIUM_RIGHT_BORDER		= 100.f;
 constexpr float AQUARIUM_TOP_BORDER			= 100.f;
-constexpr uint64_t GENERATORS_COUNT = 2048;
+constexpr uint64_t GENERATORS_COUNT			= 1024;
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -71,6 +71,14 @@ void algae_move(
 
 __device__
 void fish_reproduction(
+	AquariumSoA* aquarium,
+	uint32_t start_val,
+	uint32_t incr_val,
+	curandState* generators
+);
+
+__device__
+void algae_reproduction(
 	AquariumSoA* aquarium,
 	uint32_t start_val,
 	uint32_t incr_val,
