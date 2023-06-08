@@ -7,34 +7,114 @@
 #endif
 #include <device_functions.h>
 
-__global__ void simulate_generation(AquariumSoA aquarium, curandState* generators)
+// ---------------------------------------------------------------- BUCKET SORT FUNCTIONS -----------------------------------------------------------------------
+
+__global__ void calculateAlgaeCellPositions(AquariumSoA aquarium, s_scene scene)
 {
-	extern __shared__ uint32_t count[]; 
+	extern __shared__ uint32_t count[];
 	count[FISH_COUNT_ID] = *aquarium.fishes.count;
 	count[ALGAE_COUNT_ID] = *aquarium.algae.count;
 	__syncthreads();
 
 	const uint32_t start_val = blockIdx.x * blockDim.x + threadIdx.x;
 	const uint32_t incr_val = blockDim.x * gridDim.x;
-	
-	for (int j = 0; j < TICKS_PER_GENERATION; ++j)
+
+	for (int id = start_val;
+		id < scene.cellX*scene.cellY;
+		id += incr_val)
 	{
-		fish_decision(&aquarium, start_val, incr_val);
-		__syncthreads();
+		scene.cellBucketSizes[id] = 0;
+		for (uint64_t i = 0; i < count[ALGAE_COUNT_ID]; i++)
+		{
+			uint algaCellId = (uint)(aquarium.algae.positions.x[i] / scene.cellWidth) + (uint)(aquarium.algae.positions.y[i] / scene.cellHieght) * scene.cellX;
+			if (id == algaCellId)
+			{
+				scene.cellArray[calc2DIdx<int>(id, scene.cellBucketSizes[id], scene.pitch)] = i;
+				scene.cellBucketSizes[id]++;
+				//printf("alga[%u] pos:[%f,%f]\t - cellXid [%u]\t - cellYid [%u] -> cellID: [%u]\n", i, aquarium.algae.positions.x[i], aquarium.algae.positions.y[i], (uint)(aquarium.algae.positions.x[i] / scene.cellWidth), (uint)(aquarium.algae.positions.y[i] / scene.cellHieght), algaCellId);
+			}
+		}
+		//printf("cell [%d] has [%d] algae\n", id, scene.cellBucketSizes[id]);
+	}
+}
+template<typename T>
+__device__ int calc2DIdx(int row, int col, size_t pitch)
+{
+	return row*pitch / sizeof(T) + col;
+}
 
-		algae_decision(&aquarium, start_val, incr_val);
-		__syncthreads();
+// ---------------------------------------------------------------- FINDING CLOSEST ALGA FUNCTIONS -----------------------------------------------------------------------
 
-		fish_move(&aquarium, start_val, incr_val);
-		__syncthreads();
+__device__ int findClosestAlga(AquariumSoA* aquarium, s_scene* scene, uint32_t fishId, float* distToBeat)
+{
+	uint2 fishCell = { (uint)(aquarium->fishes.positions.x[fishId] / scene->cellWidth), (uint)(aquarium->fishes.positions.y[fishId] / scene->cellHieght) };
 
-		algae_move(&aquarium, start_val, incr_val);
-		__syncthreads();
+	//check same cell
+	int closest_algae_id = findClosestAlgaInCell(aquarium,scene,fishId,fishCell, distToBeat);
+	
+	// check cells above
+	if (fishCell.y > 0)
+	{
+		// directly above
+		closest_algae_id = findClosestAlgaInCell(aquarium, scene, fishId, {fishCell.x, fishCell.y -1}, distToBeat);
+		// left above
+		if (fishCell.x > 0)
+		{
+			closest_algae_id = findClosestAlgaInCell(aquarium, scene, fishId, { fishCell.x - 1, fishCell.y - 1 }, distToBeat);
+		}
+		// right above
+		if (fishCell.x < scene->cellX - 1)
+		{
+			closest_algae_id = findClosestAlgaInCell(aquarium, scene, fishId, { fishCell.x + 1, fishCell.y - 1 }, distToBeat);
+		}
+	}
+	// check cell below
+	if (fishCell.y < scene->cellY - 1)
+	{
+		// directly below
+		closest_algae_id = findClosestAlgaInCell(aquarium, scene, fishId, { fishCell.x, fishCell.y + 1 }, distToBeat);
+		// left below
+		if (fishCell.x > 0)
+		{
+			closest_algae_id = findClosestAlgaInCell(aquarium, scene, fishId, { fishCell.x - 1, fishCell.y + 1 }, distToBeat);
+		}
+		// right below
+		if (fishCell.x < scene->cellX - 1)
+		{
+			closest_algae_id = findClosestAlgaInCell(aquarium, scene, fishId, { fishCell.x + 1, fishCell.y + 1 }, distToBeat);
+		}
+	}
+	// check cell on the left
+	if (fishCell.x > 0)
+	{
+		closest_algae_id = findClosestAlgaInCell(aquarium, scene, fishId, { fishCell.x - 1, fishCell.y }, distToBeat);
+	}
+	// check cell on the right
+	if (fishCell.x < scene->cellX - 1)
+	{
+		closest_algae_id = findClosestAlgaInCell(aquarium, scene, fishId, { fishCell.x + 1, fishCell.y }, distToBeat);
 	}
 
-	if (start_val != 0) return;
-	fish_reproduction(&aquarium, start_val, incr_val, generators);
-	algae_reproduction(&aquarium, start_val, incr_val, generators);
+	return closest_algae_id;
+}
+
+__device__ int findClosestAlgaInCell(AquariumSoA* aquarium, s_scene* scene, uint32_t fishId, uint2 cell, float* distToBeat)
+{
+	int closest_alga_id = -1;
+	int cellArrayIdx = cell.x + cell.y * scene->cellX;
+
+	for (int i = 0; i < scene->cellBucketSizes[cellArrayIdx]; i++)
+	{
+		int alga_id = scene->cellArray[calc2DIdx<int>(cellArrayIdx, i, scene->pitch)];
+		float curr_dist = algae_in_sight_dist(aquarium, fishId, alga_id);
+
+		if (curr_dist != -1 && curr_dist < *distToBeat)
+		{
+			closest_alga_id = alga_id;
+			*distToBeat = curr_dist;
+		}
+	}
+	return closest_alga_id;
 }
 
 // returns algae distance or -1 if fish cannot see the algae
@@ -60,7 +140,40 @@ __device__ float algae_in_sight_dist(AquariumSoA* aquarium, uint32_t fishId, siz
 	return dist;
 }
 
-__device__ void fish_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_val)
+// ---------------------------------------------------------------- MAIN SIMULATION FUNCTIONS -----------------------------------------------------------------------
+
+__global__ void simulate_generation(AquariumSoA aquarium, s_scene scene, curandState* generators)
+{
+	extern __shared__ uint32_t count[];
+	count[FISH_COUNT_ID] = *aquarium.fishes.count;
+	count[ALGAE_COUNT_ID] = *aquarium.algae.count;
+	__syncthreads();
+
+	const uint32_t start_val = blockIdx.x * blockDim.x + threadIdx.x;
+	const uint32_t incr_val = blockDim.x * gridDim.x;
+
+	for (int j = 0; j < TICKS_PER_GENERATION; ++j)
+	{
+		fish_decision(&aquarium, &scene, start_val, incr_val);
+		__syncthreads();
+
+		algae_decision(&aquarium, start_val, incr_val);
+		__syncthreads();
+
+		fish_move(&aquarium, start_val, incr_val);
+		__syncthreads();
+
+		algae_move(&aquarium, start_val, incr_val);
+		__syncthreads();
+	}
+
+	if (start_val != 0) return;
+	fish_reproduction(&aquarium, start_val, incr_val, generators);
+	algae_reproduction(&aquarium, start_val, incr_val, generators);
+
+}
+
+__device__ void fish_decision(AquariumSoA* aquarium, s_scene* scene, uint32_t start_val, uint32_t incr_val)
 {
 	uint32_t id;
 	extern __shared__ uint32_t count[]; 
@@ -78,21 +191,7 @@ __device__ void fish_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_
 		// Loop through all algea and find closest one
 		int closest_algae_id = -1;
 		float closest_algae_dist = FLT_MAX;
-
-		for (size_t i = 0; i < count[ALGAE_COUNT_ID]; ++i)
-		{
-			if (!aquarium->algae.alives[i]) continue;
-
-			float curr_dist = algae_in_sight_dist(aquarium, id, i);
-			if (curr_dist == -1.f)
-				continue;
-
-			if (closest_algae_id == -1 || curr_dist < closest_algae_dist)
-			{
-				closest_algae_dist = curr_dist;
-				closest_algae_id = i;
-			}
-		}
+		closest_algae_id = findClosestAlga(aquarium, scene, id, &closest_algae_dist);
 
 		if (closest_algae_id == -1)
 		{
@@ -100,6 +199,7 @@ __device__ void fish_decision(AquariumSoA* aquarium, uint32_t start_val, uint32_
 			return;
 		}
 
+		//printf("FISH [%u] FOUND TARGET --- ALGAE[%u]\n", id, closest_algae_id);
 
 		// update fishes vector if there is any algea on map
 		float algae_x = aquarium->algae.positions.x[closest_algae_id];
@@ -321,7 +421,6 @@ void fish_reproduction(AquariumSoA* aquarium, uint32_t start_val, uint32_t incr_
 	*aquarium->fishes.count = new_index;
 	generators[start_val] = generator;
 }
-
 
 void algae_reproduction(
 	AquariumSoA* aquarium,

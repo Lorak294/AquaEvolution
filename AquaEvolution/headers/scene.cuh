@@ -8,10 +8,10 @@ struct s_scene
 	float cellWidth;
 	float cellHieght;
 
-	// array that stores objects sorted by cells  1000x1000 10.000x10.0000
-	uint* objCellArray; // x << 16
-	// array that stores cellSizes and indexes in the objCellArray
-	uint* cellSizeArray;
+	// algae positions in cells 
+	int* cellArray;
+	size_t pitch;
+	int* cellBucketSizes;
 };
 
 #endif

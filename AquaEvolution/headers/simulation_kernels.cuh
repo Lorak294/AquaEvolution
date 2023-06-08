@@ -39,11 +39,20 @@ constexpr uint64_t TICKS_PER_GENERATION		= 1000;
 /// </summary>
 /// <param name="aquarium"></param>
 /// <returns></returns>
-__global__ void simulate_generation(AquariumSoA aquarium, curandState* generators);
+__global__ void simulate_generation(AquariumSoA aquarium, s_scene scene, curandState* generators);
+
+__global__ void calculateAlgaeCellPositions(AquariumSoA aquarium, s_scene scene);
+template<typename T>
+__device__ int calc2DIdx(int row, int col, size_t pitch);
+
+__device__ int findClosestAlga(AquariumSoA* aquarium, s_scene* scene, uint32_t fishId, float* distToBeat);
+__device__ int findClosestAlgaInCell(AquariumSoA* aquarium, s_scene* scene, uint32_t fishId, uint2 cell, float* distToBeat);
+__device__ float algae_in_sight_dist(AquariumSoA* aquarium, uint32_t fishId, size_t algaId);
 
 __device__ 
 void fish_decision(
 	AquariumSoA* aquarium,
+	s_scene* scene,
 	uint32_t start_val,
 	uint32_t incr_val
 	);

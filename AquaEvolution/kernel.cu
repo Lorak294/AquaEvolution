@@ -2,7 +2,6 @@
 #include "device_launch_parameters.h"
 
 #include "headers/Shader.h"
-//#include "headers/aquarium.cuh"
 #include "headers/structs/aquarium.cuh"
 #include "headers/scene.cuh"
 #include "headers/deviceFunctions.cuh"
@@ -48,7 +47,6 @@ void createAlgaBuffers();
 void createFishBuffers();
 void cleanup();
 void renderLoop(GLFWwindow* window, Shader shader);
-void makeNewGeneration();
 void initMemory();
 void copyAquariumStructToDevice();
 void copyAquariumStructFromDevice();
@@ -72,9 +70,10 @@ const glm::vec3 FISHCOLOR2 = { 0.85f, 0.7f, 0.2f };
 
 // scene settings
 //const float Object::initaialSize = 1.0f;
-const unsigned int CELLSX = 1000;
-const unsigned int CELLSY = 1000;
+const unsigned int CELLSX = 100;
+const unsigned int CELLSY = 100;
 const unsigned int MAXOBJCOUNT = Aquarium::maxObjCount;
+const unsigned int CELL_MAXOBJCOUNT = Aquarium::maxObjCount;
 //const int Aquarium::maxObjCount = MAXOBJCOUNT;
 unsigned int AQUARIUM_WIDTH = 100;
 unsigned int AQUARIUM_HEIGHT = 100;
@@ -98,7 +97,6 @@ __global__ void setup_random_generators(curandState* state)
 		   number, no offset */
 	curand_init(69, id, 0, &state[id]);
 }
-
 
 __global__ void test_random_generators(curandState* state)
 {
@@ -124,7 +122,7 @@ int main(int argc, char* argv[])
 	int algaeCount = 100;
 #else
 	int fishCount = 100;
-	int algaeCount = 100;
+	int algaeCount = 500;
 #endif
 
 	// initialize scene with radom objects
@@ -357,6 +355,11 @@ void renderLoop(GLFWwindow* window, Shader shader)
 	hostAquarium.writeToDeviceStruct(hostAquariumStruct);
 	copyAquariumStructToDevice();
 
+
+	int nblocks = std::max(
+		*hostAquariumStruct.fishes.count,
+		*hostAquariumStruct.algae.count) / THREADS_COUNT + 1;
+
 	// we operate in simple 2D space so form MVP matrices M is enough
 	while (!glfwWindowShouldClose(window))
 	{
@@ -372,17 +375,20 @@ void renderLoop(GLFWwindow* window, Shader shader)
 		int nblocks = std::max(
 			*hostAquariumStruct.fishes.count,
 			*hostAquariumStruct.algae.count) / THREADS_COUNT + 1;
-
+		
 		auto start = std::chrono::high_resolution_clock::now();
-
-#ifndef NDEBUG
-		simulate_generation << <1, 100, 2 * sizeof(uint32_t) >> > (deviceAquariumStruct, randomGenerators);
-#else
-		simulate_generation << <nblocks, THREADS_COUNT, 2 * sizeof(uint32_t) >> > (deviceAquariumStruct, randomGenerators);
-#endif //!NDEBUG
-
+		calculateAlgaeCellPositions << < nblocks, THREADS_COUNT, 2 * sizeof(uint32_t) >> > (deviceAquariumStruct, deviceSceneStruct);
 		checkCudaErrors(cudaDeviceSynchronize());
-		//std::cout << "simulate_generation: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
+		//std::cout << "algae bucket sort: " <<  std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
+
+		start = std::chrono::high_resolution_clock::now();
+#ifndef NDEBUG
+		simulate_generation << <1, 100, 2 * sizeof(uint32_t) >> > (deviceAquariumStruct, deviceSceneStruct, randomGenerators);
+#else
+		simulate_generation << <nblocks, THREADS_COUNT, 2 * sizeof(uint32_t) >> > (deviceAquariumStruct, deviceSceneStruct, randomGenerators);
+#endif //!NDEBUG
+		checkCudaErrors(cudaDeviceSynchronize());
+		std::cout << "simulate_generation: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
 
 		start = std::chrono::high_resolution_clock::now();
 		copyAquariumStructFromDevice();
@@ -404,19 +410,6 @@ void renderLoop(GLFWwindow* window, Shader shader)
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
-}
-
-// --------------------------------------------- AQUARIUM MANAGEMENT FUNCTIONS ----------------------------------------------
-void makeNewGeneration()
-{
-	// copy alive objects to new aquarium
-	hostAquarium.readFromDeviceStruct(hostAquariumStruct, false);
-
-	// make new objects from each one
-	hostAquarium.newGeneration();
-
-	// apply mutations and store objects in new arrays
-	hostAquarium.writeToDeviceStruct(hostAquariumStruct);
 }
 void renderAquarium(Shader shader)
 {
@@ -450,7 +443,6 @@ void renderAquarium(Shader shader)
 		glDrawElements(GL_TRIANGLES, 18, GL_UNSIGNED_INT, 0);
 	}
 }
-
 glm::mat4 getMVP(float2 pos, float2 vec, float size)
 {
 	float scaleX = (2.0f / AQUARIUM_WIDTH);
@@ -622,8 +614,9 @@ void mallocDeviceSceneStruct()
 	deviceSceneStruct.cellY = CELLSY;
 	deviceSceneStruct.cellHieght = AQUARIUM_HEIGHT / CELLSY;
 	deviceSceneStruct.cellWidth = AQUARIUM_WIDTH / CELLSX;
-	checkCudaErrors(cudaMalloc((void**)&deviceSceneStruct.objCellArray, MAXOBJCOUNT *sizeof(uint)));
-	checkCudaErrors(cudaMalloc((void**)&deviceSceneStruct.cellSizeArray, CELLSX*CELLSY*2*sizeof(uint)));
+	checkCudaErrors(cudaMallocPitch((void**)&deviceSceneStruct.cellArray, &deviceSceneStruct.pitch, CELL_MAXOBJCOUNT * sizeof(int), CELLSX*CELLSY ));
+	checkCudaErrors(cudaMalloc((void**)&deviceSceneStruct.cellBucketSizes, CELLSX*CELLSY * sizeof(int)));
+	checkCudaErrors(cudaMemset(deviceSceneStruct.cellBucketSizes, 0 ,CELLSX*CELLSY * sizeof(int)));
 }
 void freeDeviceAquariumStruct()
 {
@@ -690,6 +683,6 @@ void freeHostAquariumStruct()
 }
 void freeDeviceSceneStruct()
 {
-	checkCudaErrors(cudaFree(deviceSceneStruct.objCellArray));
-	checkCudaErrors(cudaFree(deviceSceneStruct.cellSizeArray));
+	checkCudaErrors(cudaFree(deviceSceneStruct.cellArray));
+	checkCudaErrors(cudaFree(deviceSceneStruct.cellBucketSizes));
 }

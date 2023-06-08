@@ -47,7 +47,7 @@ struct FishStats
 	float energyUsage;
 
 	// initial values constructor
-	FishStats() : size(0.5f), sightDist(10.f), sightAngle(0.f), maxEnergy(50.f), energyUsage(0.01f)
+	FishStats() : size(0.5f), sightDist(1.f), sightAngle(0.f), maxEnergy(50.f), energyUsage(0.01f)
 	{
 
 	}
